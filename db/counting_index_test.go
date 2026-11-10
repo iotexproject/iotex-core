@@ -245,3 +245,96 @@ func TestCheckBulk(t *testing.T) {
 		testFunc(NewBoltDB(cfg), t)
 	})
 }
+
+// failGetKVStore fails reads on demand
+type failGetKVStore struct {
+	KVStoreWithRange
+	failGet bool
+}
+
+func (f *failGetKVStore) Get(ns string, key []byte) ([]byte, error) {
+	if f.failGet {
+		return nil, errors.New("injected read fault")
+	}
+	return f.KVStoreWithRange.Get(ns, key)
+}
+
+func TestCountingIndexAddToBatch(t *testing.T) {
+	r := require.New(t)
+	kv := NewMemKVStore().(KVStoreWithRange)
+	index, err := NewCountingIndexNX(kv, []byte("test"))
+	r.NoError(err)
+	r.NoError(index.Add([]byte("v0"), false))
+
+	b := batch.NewBatch()
+	apply := index.AddToBatch(b, []byte("v1"), []byte("v2"), []byte("v3"))
+	// the index is not changed before the batch is committed
+	r.EqualValues(1, index.Size())
+	r.NoError(kv.WriteBatch(b))
+	r.EqualValues(1, index.Size())
+	apply()
+	r.EqualValues(4, index.Size())
+	values, err := index.Range(0, 4)
+	r.NoError(err)
+	r.Equal([][]byte{[]byte("v0"), []byte("v1"), []byte("v2"), []byte("v3")}, values)
+
+	// the new size is persisted
+	reloaded, err := GetCountingIndex(kv, []byte("test"))
+	r.NoError(err)
+	r.EqualValues(4, reloaded.Size())
+
+	// adding no value keeps the size
+	b = batch.NewBatch()
+	apply = index.AddToBatch(b)
+	r.NoError(kv.WriteBatch(b))
+	apply()
+	r.EqualValues(4, index.Size())
+}
+
+func TestNewCountingIndexNXReadError(t *testing.T) {
+	r := require.New(t)
+	kv := &failGetKVStore{KVStoreWithRange: NewMemKVStore().(KVStoreWithRange)}
+	index, err := NewCountingIndexNX(kv, []byte("test"))
+	r.NoError(err)
+	r.NoError(index.Add([]byte("v0"), false))
+	r.NoError(index.Add([]byte("v1"), false))
+
+	// a failed read is not taken as a missing index
+	kv.failGet = true
+	_, err = NewCountingIndexNX(kv, []byte("test"))
+	r.Error(err)
+	kv.failGet = false
+	index, err = NewCountingIndexNX(kv, []byte("test"))
+	r.NoError(err)
+	r.EqualValues(2, index.Size())
+}
+
+func TestLoadCountingIndex(t *testing.T) {
+	r := require.New(t)
+	kv := &failGetKVStore{KVStoreWithRange: NewMemKVStore().(KVStoreWithRange)}
+
+	// a missing index is empty, and is not created
+	index, err := LoadCountingIndex(kv, []byte("test"))
+	r.NoError(err)
+	r.Zero(index.Size())
+	_, err = kv.Get("test", CountKey)
+	r.ErrorIs(err, ErrNotExist)
+
+	// it is created once a batch is committed
+	b := batch.NewBatch()
+	index.AddToBatch(b, []byte("v0"), []byte("v1"))
+	r.NoError(kv.WriteBatch(b))
+	index, err = LoadCountingIndex(kv, []byte("test"))
+	r.NoError(err)
+	r.EqualValues(2, index.Size())
+
+	// a failed read is returned
+	kv.failGet = true
+	_, err = LoadCountingIndex(kv, []byte("test"))
+	r.Error(err)
+
+	_, err = LoadCountingIndex(nil, []byte("test"))
+	r.ErrorIs(err, ErrInvalid)
+	_, err = LoadCountingIndex(kv, nil)
+	r.ErrorIs(err, ErrInvalid)
+}

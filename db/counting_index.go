@@ -33,10 +33,10 @@ type (
 		Size() uint64
 		// Add inserts a value into the index
 		Add([]byte, bool) error
-		// AddToBatch puts a value and the new size into the batch without changing
-		// the index, and returns a func that updates the size once the batch is
-		// committed. At most one value can be added per batch.
-		AddToBatch(batch.KVStoreBatch, []byte) func()
+		// AddToBatch puts the values and the new size into the batch without
+		// changing the index, and returns a func that updates the size once the
+		// batch is committed. It can be called at most once per batch.
+		AddToBatch(batch.KVStoreBatch, ...[]byte) func()
 		// Get return value of key[slot]
 		Get(uint64) ([]byte, error)
 		// Range return value of keys [start, start+count)
@@ -77,16 +77,45 @@ func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 	bucket := string(name)
 	// check if the index exist or not
 	total, err := kv.Get(bucket, CountKey)
-	if errors.Cause(err) == ErrNotExist || total == nil {
+	switch {
+	case errors.Cause(err) == ErrNotExist || (err == nil && total == nil):
 		// put 0 as total number of keys
 		if err := kv.Put(bucket, CountKey, ZeroIndex); err != nil {
 			return nil, errors.Wrapf(err, "failed to create counting index %x", name)
 		}
 		total = ZeroIndex
+	case err != nil:
+		// do not take a failed read as a missing index, which would reset its size
+		return nil, errors.Wrapf(err, "failed to read size of counting index %x", name)
 	}
 
 	return &countingIndex{
 		kvStore: kvRange,
+		bucket:  bucket,
+		size:    byteutil.BytesToUint64BigEndian(total),
+	}, nil
+}
+
+// LoadCountingIndex returns the counting index, or an empty one if it does not
+// exist. Unlike NewCountingIndexNX it does not write, so a new index is created
+// only when a batch from AddToBatch is committed
+func LoadCountingIndex(kv KVStoreWithRange, name []byte) (CountingIndex, error) {
+	if kv == nil {
+		return nil, errors.Wrap(ErrInvalid, "KVStore object is nil")
+	}
+	if len(name) == 0 {
+		return nil, errors.Wrap(ErrInvalid, "bucket name is nil")
+	}
+	bucket := string(name)
+	total, err := kv.Get(bucket, CountKey)
+	switch {
+	case errors.Cause(err) == ErrNotExist || errors.Cause(err) == ErrBucketNotExist || (err == nil && total == nil):
+		total = ZeroIndex
+	case err != nil:
+		return nil, errors.Wrapf(err, "failed to read size of counting index %x", name)
+	}
+	return &countingIndex{
+		kvStore: kv,
 		bucket:  bucket,
 		size:    byteutil.BytesToUint64BigEndian(total),
 	}, nil
@@ -147,15 +176,18 @@ func (c *countingIndex) addBatch(value []byte) error {
 	return nil
 }
 
-// AddToBatch puts a value and the new size into the batch without changing
+// AddToBatch puts the values and the new size into the batch without changing
 // the index, and returns a func that updates the size once the batch is
-// committed. At most one value can be added per batch.
-func (c *countingIndex) AddToBatch(b batch.KVStoreBatch, value []byte) func() {
+// committed. It can be called at most once per batch.
+func (c *countingIndex) AddToBatch(b batch.KVStoreBatch, values ...[]byte) func() {
 	size := c.Size()
-	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(size), value, fmt.Sprintf("failed to add %d-th item", size+1))
-	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size+1), fmt.Sprintf("failed to update size = %d", size+1))
+	for _, value := range values {
+		b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(size), value, fmt.Sprintf("failed to add %d-th item", size+1))
+		size++
+	}
+	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size), fmt.Sprintf("failed to update size = %d", size))
 	b.AddFillPercent(c.bucket, 1.0)
-	return func() { atomic.StoreUint64(&c.size, size+1) }
+	return func() { atomic.StoreUint64(&c.size, size) }
 }
 
 // Get return value of key[slot]
