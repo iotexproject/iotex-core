@@ -344,7 +344,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
 		path := builder.cfg.Chain.ChainDBPath
-		uri, err := url.Parse(path)
+		// NOTE: assign to the err declared above rather than declaring a new one.
+		// A ":=" here shadows it for the whole block, and the store-construction
+		// error below would then never reach the "if err != nil" after the block.
+		var uri *url.URL
+		uri, err = url.Parse(path)
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse chain db path %s", path)
 		}
@@ -821,7 +825,11 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(nil, rewarding.DepositGas, nil, builder.cfg.ActPool.IsBlackListedFunc(builder.cfg.Genesis.ZanzibarBlockHeight)).Register(builder.cs.registry)
+	// The EIP-7702 authority check runs in block execution, so it reads the
+	// blacklist from genesis; the actpool config only governs admission.
+	blackList, activeHeight, removal := builder.cfg.Genesis.SetCodeAuthorityBlackListParams()
+	isBlackListed := actpool.IsBlackListedFunc(blackList, activeHeight, removal, builder.cfg.Genesis.ZanzibarBlockHeight)
+	return execution.NewProtocol(nil, rewarding.DepositGas, nil, isBlackListed).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
