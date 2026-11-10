@@ -8,14 +8,21 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
 
 	. "github.com/agiledragon/gomonkey/v2"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -178,8 +185,10 @@ func getTopicsAddress(addr []string, topics [][]string) (*iotexapi.LogsFilter, e
 }
 
 func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
-	cfg := newConfig()
+	return setupTestCoreServiceWithConfig(newConfig())
+}
 
+func setupTestCoreServiceWithConfig(cfg testConfig) (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
@@ -682,6 +691,104 @@ func TestTraceCall(t *testing.T) {
 	require.Equal(uint64(1), receipt.Status)
 	require.Equal(uint64(0x2710), receipt.GasConsumed)
 	require.Empty(receipt.ExecutionRevertMsg())
+}
+
+func TestTraceCallWithNamedTracer(t *testing.T) {
+	require := require.New(t)
+	svr, bc, _, ap, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+
+	// a named tracer needs the chain config, which reads the block context
+	for _, height := range []uint64{0, blk.Height()} {
+		tracerName := "callTracer"
+		require.NotPanics(func() {
+			_, receipt, tracer, err := svr.TraceCall(ctx,
+				identityset.Address(29), height,
+				identityset.Address(29).String(),
+				0, big.NewInt(0), testutil.TestGasLimit,
+				[]byte{}, &tracers.TraceConfig{Tracer: &tracerName})
+			require.NoError(err)
+			require.Equal(uint64(1), receipt.Status)
+			res, err := tracer.(*tracers.Tracer).GetResult()
+			require.NoError(err)
+			require.NotEmpty(res)
+		})
+	}
+}
+
+func TestTraceCallForkBoundary(t *testing.T) {
+	require := require.New(t)
+	const vanuatuHeight = 10
+	cfg := newConfig()
+	cfg.genesis.VanuatuBlockHeight = vanuatuHeight
+	testutil.NormalizeGenesisHeights(&cfg.genesis.Blockchain)
+	svr, bc, _, _, cleanCallback := setupTestCoreServiceWithConfig(cfg)
+	defer cleanCallback()
+	ctx := context.Background()
+
+	// a test-only native tracer that reports whether 0x0a (point evaluation,
+	// active from Cancun/Vanuatu) is in the precompile set derived from the
+	// chain config the tracer is built with and the block the call runs in
+	tracerName := "testTraceCallCancunPrecompile"
+	tracers.DefaultDirectory.Register(tracerName, func(_ *tracers.Context, _ json.RawMessage, cc *params.ChainConfig) (*tracers.Tracer, error) {
+		var (
+			started bool
+			active  bool
+		)
+		return &tracers.Tracer{
+			Hooks: &tracing.Hooks{
+				OnTxStart: func(env *tracing.VMContext, _ *gethtypes.Transaction, _ common.Address) {
+					rules := cc.Rules(env.BlockNumber, env.Random != nil, env.Time)
+					started = true
+					active = slices.Contains(vm.ActivePrecompiles(rules), common.BytesToAddress([]byte{0x0a}))
+				},
+			},
+			GetResult: func() (json.RawMessage, error) {
+				if !started {
+					return nil, errors.New("tracer did not see the transaction start")
+				}
+				return json.Marshal(active)
+			},
+			Stop: func(error) {},
+		}, nil
+	}, false)
+	isCancunPrecompiled := func() string {
+		_, receipt, tracer, err := svr.TraceCall(ctx,
+			identityset.Address(29), 0,
+			identityset.Address(29).String(),
+			0, big.NewInt(0), testutil.TestGasLimit,
+			[]byte{}, &tracers.TraceConfig{Tracer: &tracerName})
+		require.NoError(err)
+		require.Equal(uint64(1), receipt.Status)
+		res, err := tracer.(*tracers.Tracer).GetResult()
+		require.NoError(err)
+		return string(res)
+	}
+	mintTo := func(height uint64) {
+		for bc.TipHeight() < height {
+			blk, err := bc.MintNewBlock(testutil.TimestampNow())
+			require.NoError(err)
+			require.NoError(bc.CommitBlock(blk))
+		}
+		require.Equal(height, bc.TipHeight())
+	}
+
+	// tip = fork - 2: the call executes at fork - 1, before Cancun
+	mintTo(vanuatuHeight - 2)
+	require.Equal("false", isCancunPrecompiled())
+	// tip = fork - 1: the call executes at the fork height, so the tracer
+	// must see Cancun as well
+	mintTo(vanuatuHeight - 1)
+	require.Equal("true", isCancunPrecompiled())
 }
 
 func TestProofAndCompareReverseActions(t *testing.T) {

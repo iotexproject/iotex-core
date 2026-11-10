@@ -8,7 +8,9 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"io"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/eth/tracers"
@@ -1052,6 +1054,36 @@ func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 	})
 	require.NoError(err)
 	require.Equal(0, len(resp.StructLogs))
+}
+
+func TestGrpcServer_TraceTransactionStructLogsNoStdout(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	structLogger := &logger.StructLogger{}
+	tracer := &tracers.Tracer{
+		Hooks:     structLogger.Hooks(),
+		GetResult: structLogger.GetResult,
+		Stop:      structLogger.Stop,
+	}
+	core.EXPECT().TraceTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, tracer, nil)
+
+	// the trace result must not be written to stdout
+	r, w, err := os.Pipe()
+	require.NoError(err)
+	stdout := os.Stdout
+	os.Stdout = w
+	_, err = grpcSvr.TraceTransactionStructLogs(context.Background(), &iotexapi.TraceTransactionStructLogsRequest{
+		ActionHash: "_actionHash",
+	})
+	os.Stdout = stdout
+	require.NoError(w.Close())
+	require.NoError(err)
+	out, err := io.ReadAll(r)
+	require.NoError(err)
+	require.Empty(string(out))
 }
 
 func getAction() (act *iotextypes.Action) {

@@ -2214,10 +2214,19 @@ func (core *coreService) TraceCall(ctx context.Context,
 	if gasLimit == 0 {
 		gasLimit = blockGasLimit
 	}
-	ctx, err := core.bc.Context(ctx)
+	ctx, err := core.bc.ContextAtHeight(ctx, height)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	// the tracer setup reads the chain config from the block context, so
+	// provide the next-block height and timestamp that evm.SimulateExecution
+	// runs the call at; otherwise the tracer and the execution can disagree on
+	// the fork rules right before a fork
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    bcCtx.Tip.Height + 1,
+		BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
+	}))
 	elp := (&action.EnvelopeBuilder{}).SetAction(action.NewExecution(contractAddress, amount, data)).
 		SetGasLimit(gasLimit).Build()
 	return core.traceTx(ctx, new(tracers.Context), config, func(ctx context.Context) ([]byte, *action.Receipt, error) {
