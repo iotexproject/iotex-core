@@ -47,7 +47,8 @@ on the state database). The slowest configuration measured, an AMD Ryzen 5 3600
 with the SHA extensions turned off (`GODEBUG=cpu.sha=off`), took 1.29 ms per
 UNSTAKE and 2.53 ms per ROTATE, about 77,000 gas per verification at the
 16.7 ns/gas basis of IIP-65 §8; `G_VERIFY` keeps a 2× margin over it. With the
-SHA extensions the same machine took 0.70 ms and 1.21 ms. Failing signatures
+SHA extensions the same machine took 0.70 ms and 1.21 ms; native linux/arm64
+(Arm Neoverse-N2) took 0.65 ms and 1.11 ms. Failing signatures
 cost the same as valid ones. Emulated builds are not a calibration source.
 There is no per-block verification cap: the block gas limit bounds
 verification work, and `G_VERIFY` must be re-evaluated whenever the block gas
@@ -499,9 +500,6 @@ bound. It does not eliminate every ECDSA role:
 
 ## 11. Open items
 
-- A full-handler measurement on a native linux/arm64 server. A linux/arm64 VM
-  on Apple silicon measured 0.33 ms per verification, faster than linux/amd64,
-  so it does not change `G_VERIFY`.
 - Cross-wallet KDF/recovery interoperability tests.
 - Hardfork name and height, selected by maintainers.
 - External audit before any activation.
