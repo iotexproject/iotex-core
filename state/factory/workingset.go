@@ -1114,6 +1114,27 @@ func (ws *workingSet) validateAndRun(
 			countMintSkip("unfold", nextAction)
 			return true, true, nil, nil
 		}
+		// Unfold replaces the folded container with the native action, but
+		// admission only ran SanityCheck on the container, whose check does not
+		// decode the staking calldata. Re-run the stateless checks on the
+		// unfolded action here, so that an action that is invalid only after
+		// unfolding (e.g. depositToStake with amount 0) is left out of the block
+		// instead of being minted into it.
+		fCtx := protocol.MustGetFeatureCtx(ctx)
+		if err := nextAction.Envelope.SanityCheck(); err != nil && !fCtx.Tolerate(err) {
+			log.L().Info("unfolded action failed sanity check", zap.Uint64("height", ws.height), zap.Error(err))
+			countMintSkip("sanity", nextAction)
+			return true, true, nil, nil
+		}
+		if intrinsicGas, err := nextAction.IntrinsicGas(); err != nil {
+			log.L().Info("failed to get unfolded action intrinsic gas", zap.Uint64("height", ws.height), zap.Error(err))
+			countMintSkip("intrinsic_gas", nextAction)
+			return true, true, nil, nil
+		} else if intrinsicGas > nextAction.Gas() {
+			log.L().Info("unfolded action intrinsic gas exceeds gas limit", zap.Uint64("height", ws.height), zap.Uint64("intrinsicGas", intrinsicGas), zap.Uint64("gas", nextAction.Gas()))
+			countMintSkip("intrinsic_gas", nextAction)
+			return true, true, nil, nil
+		}
 	}
 	// a sender held back by the candidate cap below waits for the next block
 	if sender := nextAction.SenderAddress(); sender != nil && ws.mintDeferred[sender.String()] {
