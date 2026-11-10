@@ -336,8 +336,10 @@ func checkGuardEnvelope(elp action.Envelope) error {
 
 // fetchNativeBucket loads a bucket for the guard actions. Unlike fetchBucket,
 // only "no such bucket" is a receipt; any other read error is a backend
-// failure and aborts the block (IIP §9.3).
-func fetchNativeBucket(csm CandidateStateManager, index uint64) (*VoteBucket, error) {
+// failure and aborts the block (IIP §9.3). A bucket that is not native fails
+// with notNative: ErrGuardScope for BIND (§5), ErrBucketNotGuarded for an op
+// (§9.2 step 2), since no such bucket can be guarded.
+func fetchNativeBucket(csm CandidateStateManager, index uint64, notNative error) (*VoteBucket, error) {
 	bucket, err := csm.NativeBucket(index)
 	switch errors.Cause(err) {
 	case nil:
@@ -350,7 +352,7 @@ func fetchNativeBucket(csm CandidateStateManager, index uint64) (*VoteBucket, er
 		return nil, errors.Wrapf(err, "failed to read bucket %d", index)
 	}
 	if !bucket.IsNative() {
-		return nil, guardReceiptError(errors.Wrapf(bucketguard.ErrGuardScope, "bucket %d is not native", index))
+		return nil, guardReceiptError(errors.Wrapf(notNative, "bucket %d is not native", index))
 	}
 	return bucket, nil
 }
@@ -367,7 +369,7 @@ func (p *Protocol) handleBindBucketGuard(ctx context.Context, act *action.BindBu
 	log := newReceiptLog(p.addr.String())
 	index := act.BucketIndex()
 
-	bucket, err := fetchNativeBucket(csm, index)
+	bucket, err := fetchNativeBucket(csm, index, bucketguard.ErrGuardScope)
 	if err != nil {
 		return log, nil, err
 	}
@@ -440,7 +442,7 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	height := blkCtx.BlockHeight
 
 	// step 2
-	bucket, err := fetchNativeBucket(csm, index)
+	bucket, err := fetchNativeBucket(csm, index, bucketguard.ErrBucketNotGuarded)
 	if err != nil {
 		return log, nil, err
 	}
