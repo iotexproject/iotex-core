@@ -39,19 +39,21 @@ var bucketGuardEventTopic = hash.BytesToHash256(common.FromHex("0x4f1fdf01479204
 // their bucketguard.Op value.
 const bucketGuardOpBind = 0
 
-// bucketGuardRecord is the state form of bucketguard.Guard.
-type bucketGuardRecord struct {
+// BucketGuardRecord is the state form of bucketguard.Guard, stored under
+// _bucketGuard in the staking namespace. It is exported so that the Erigon
+// storage registry can name it (IIP-65 §4).
+type BucketGuardRecord struct {
 	bucketguard.Guard
 }
 
 // Serialize implements state.Serializer.
-func (r *bucketGuardRecord) Serialize() ([]byte, error) { return r.Guard.Serialize() }
+func (r *BucketGuardRecord) Serialize() ([]byte, error) { return r.Guard.Serialize() }
 
 // Deserialize implements state.Deserializer.
-func (r *bucketGuardRecord) Deserialize(b []byte) error { return r.Guard.Deserialize(b) }
+func (r *BucketGuardRecord) Deserialize(b []byte) error { return r.Guard.Deserialize(b) }
 
 // Encode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (r *bucketGuardRecord) Encode() (systemcontracts.GenericValue, error) {
+func (r *BucketGuardRecord) Encode() (systemcontracts.GenericValue, error) {
 	data, err := r.Serialize()
 	if err != nil {
 		return systemcontracts.GenericValue{}, err
@@ -60,7 +62,7 @@ func (r *bucketGuardRecord) Encode() (systemcontracts.GenericValue, error) {
 }
 
 // Decode implements systemcontracts.GenericValueContainer for Erigon dual-storage.
-func (r *bucketGuardRecord) Decode(v systemcontracts.GenericValue) error {
+func (r *BucketGuardRecord) Decode(v systemcontracts.GenericValue) error {
 	return r.Deserialize(v.PrimaryData)
 }
 
@@ -71,7 +73,7 @@ func bucketGuardKey(index uint64) []byte {
 // getBucketGuard returns the guard record of a bucket, or nil if there is none.
 // Any other read error is a backend failure and must abort the block.
 func getBucketGuard(sr protocol.StateReader, index uint64) (*bucketguard.Guard, error) {
-	var r bucketGuardRecord
+	var r BucketGuardRecord
 	_, err := sr.State(&r, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(bucketGuardKey(index)))
 	switch errors.Cause(err) {
 	case nil:
@@ -84,7 +86,7 @@ func getBucketGuard(sr protocol.StateReader, index uint64) (*bucketguard.Guard, 
 }
 
 func putBucketGuard(sm protocol.StateManager, index uint64, g *bucketguard.Guard) error {
-	_, err := sm.PutState(&bucketGuardRecord{Guard: *g}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(bucketGuardKey(index)))
+	_, err := sm.PutState(&BucketGuardRecord{Guard: *g}, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(bucketGuardKey(index)))
 	return errors.Wrapf(err, "failed to write guard of bucket %d", index)
 }
 
@@ -99,7 +101,7 @@ func deleteBucketGuardWithBucket(ctx context.Context, sm protocol.StateManager, 
 	if err != nil || g == nil {
 		return err
 	}
-	_, err = sm.DelState(protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(bucketGuardKey(index)), protocol.ObjectOption(&bucketGuardRecord{}))
+	_, err = sm.DelState(protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(bucketGuardKey(index)), protocol.ObjectOption(&BucketGuardRecord{}))
 	return errors.Wrapf(err, "failed to delete guard of bucket %d", index)
 }
 

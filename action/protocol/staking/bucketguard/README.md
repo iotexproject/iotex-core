@@ -40,7 +40,7 @@ Wired behind `FeatureCtx.EnableBucketGuard` (= `ToBeEnabled && ZanzibarGamma`):
 | Protobuf messages, `ActionCore` oneof 59/60, receipt statuses 216–221; Draft 4 `sponsor`/`anchorHeight`/`anchorHash` (15–17) | iotex-proto `qsb/actions` | draft; `go.mod` replaces iotex-proto locally — **must be released before merge** |
 | Action types, envelope, web3 builder | `action/bucket_guard.go` | done |
 | Fork gate | `action/protocol/context.go` | done (WIP height `ToBeEnabled`; name and height to be chosen by maintainers) |
-| Guard record state (`_bucketGuard`), Erigon `Encode`/`Decode` | `staking/bucket_guard.go` | done; e2e on the Erigon backend incl. historical reads |
+| Guard record state (`_bucketGuard`), Erigon `Encode`/`Decode` and registration | `staking/bucket_guard.go`, `state/factory/erigonstore/registry.go` | done; Erigon store round trip and e2e incl. historical reads |
 | Bind / guarded-op handlers, receipts, BucketGuard event with `guardKeyID` topic | `staking/bucket_guard.go` | done (Draft 4) |
 | Draft 4 anchor (§6, §9.2 step 4), SHA-512 `callHash` (§7), sponsor binding (step 3, 203) | `bucketguard` (`CheckOp`, transcripts), `staking/bucket_guard.go` | done |
 | Address rules (§6): non-zero 20-byte recipient/newOwner/sponsor; TRANSFER `newOwner` ≠ owner; `clearGuard` not to a contract or native protocol address | `bucketguard/validate.go`, `staking/bucket_guard.go` | done |

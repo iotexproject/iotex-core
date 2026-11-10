@@ -271,9 +271,14 @@ nonce=0`. A tombstone is a present record with empty `publicKey`.
 
 ### 4.3 Erigon
 
-Register the new prefix as a storage object in the Erigon backend and add it to
-state readers/views. Test both the default and Erigon backends, including
-historical reads and restart/reorg.
+`staking.BucketGuardRecord` is registered explicitly in the Erigon storage
+registry, on the staking namespace's contract (`BucketPoolContractIndex`), which
+it used through the namespace entry before. Erigon deploys system contracts only
+when a database is created at genesis, so a new contract index would be missing
+from existing archives. `TestBucketGuardRecordRegistration` pins the mapping;
+the Erigon store test writes, rotates and deletes a record and reads each height
+back from history, and `TestBucketGuardErigon` does the same end to end through
+the API and `eth_call`.
 
 ## 5. Receipts and logs
 

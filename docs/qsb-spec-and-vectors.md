@@ -365,8 +365,9 @@ record is `generation=0, nonce=0`. A tombstone has `algID=0`, an empty
 reset across clear and rebind. The record must be written through the same state
 manager and snapshot as the bucket, and must be deleted in the same snapshot
 whenever the bucket is permanently deleted (guarded WITHDRAW, or a legacy
-`WithdrawStake`/`MigrateStake` on a previously cleared bucket). On Erigon it must
-be registered as a storage object.
+`WithdrawStake`/`MigrateStake` on a previously cleared bucket). On Erigon it is
+registered as a storage object (`staking.BucketGuardRecord`, on the staking
+namespace's contract).
 
 ## 7. Event layout
 
