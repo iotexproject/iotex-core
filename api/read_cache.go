@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"sync/atomic"
 
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -21,7 +22,7 @@ type (
 
 	// ReadCache stores read results
 	ReadCache struct {
-		total, hit int
+		total, hit atomic.Int64
 		c          *ttl.Cache
 	}
 )
@@ -42,14 +43,13 @@ func NewReadCache() *ReadCache {
 
 // Get reads according to key
 func (rc *ReadCache) Get(key hash.Hash160) ([]byte, bool) {
-	rc.total++
+	total := rc.total.Add(1)
 	d, ok := rc.c.Get(key)
 	if !ok {
 		return nil, false
 	}
-	rc.hit++
-	if rc.hit%100 == 0 {
-		log.Logger("api").Info("API cache hit", zap.Int("total", rc.total), zap.Int("hit", rc.hit))
+	if hit := rc.hit.Add(1); hit%100 == 0 {
+		log.Logger("api").Info("API cache hit", zap.Int64("total", total), zap.Int64("hit", hit))
 	}
 	return d.([]byte), true
 }
