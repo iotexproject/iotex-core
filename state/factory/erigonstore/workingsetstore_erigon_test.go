@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -204,4 +205,62 @@ func TestErigonStoreNativeState(t *testing.T) {
 		r.NoError(store.Commit(ctx, 0))
 	})
 
+	t.Run("staking.BucketGuardRecord", func(t *testing.T) {
+		r := require.New(t)
+		ns := state.StakingNamespace
+		key := append([]byte{9}, make([]byte, 8)...) // _bucketGuard, bucket 0
+		write := func(f func(*ErigonWorkingSetStore)) uint64 {
+			height++
+			ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: height}))
+			store, err := edb.NewErigonStore(ctx, height)
+			r.NoError(err)
+			f(store)
+			r.NoError(store.FinalizeTx(ctx))
+			r.NoError(store.Commit(ctx, 0))
+			return height
+		}
+		// read returns the record after block h from the history, as archive
+		// queries do; a historical store at a height reads the state its
+		// block starts from.
+		read := func(h uint64) (*staking.BucketGuardRecord, error) {
+			store, err := edb.NewErigonStoreDryrun(ctx, h+1)
+			r.NoError(err)
+			defer store.Close()
+			got := &staking.BucketGuardRecord{}
+			return got, store.GetObject(ns, key, got)
+		}
+		bound := &staking.BucketGuardRecord{}
+		bound.AlgID, bound.PublicKey, bound.Generation, bound.BoundHeight = 0x12, make([]byte, 48), 1, 7
+		rotated := &staking.BucketGuardRecord{}
+		*rotated = *bound
+		rotated.PublicKey, rotated.Generation, rotated.Nonce = append([]byte{1}, make([]byte, 47)...), 2, 1
+
+		hBind := write(func(s *ErigonWorkingSetStore) { r.NoError(s.PutObject(ns, key, bound)) })
+		hRotate := write(func(s *ErigonWorkingSetStore) { r.NoError(s.PutObject(ns, key, rotated)) })
+		hDelete := write(func(s *ErigonWorkingSetStore) { r.NoError(s.DeleteObject(ns, key, &staking.BucketGuardRecord{})) })
+
+		_, err := read(hBind - 1)
+		r.ErrorIs(err, state.ErrStateNotExist)
+		got, err := read(hBind)
+		r.NoError(err)
+		r.Equal(bound.Guard, got.Guard)
+		got, err = read(hRotate)
+		r.NoError(err)
+		r.Equal(rotated.Guard, got.Guard)
+		_, err = read(hDelete)
+		r.ErrorIs(err, state.ErrStateNotExist)
+	})
+}
+
+// TestBucketGuardRecordRegistration pins the Erigon contract of the guard
+// record (IIP-65 §4). Moving it to another contract after activation would
+// need a migration of every stored record.
+func TestBucketGuardRecordRegistration(t *testing.T) {
+	r := require.New(t)
+	index, ok := GetObjectStorageRegistry().matchContractIndex(state.StakingNamespace, &staking.BucketGuardRecord{})
+	r.True(ok)
+	r.Equal(BucketPoolContractIndex, index)
+	types := GetObjectStorageRegistry().contracts[state.StakingNamespace]
+	_, explicit := types[reflect.TypeOf(&staking.BucketGuardRecord{})]
+	r.True(explicit, "registered explicitly, not through the namespace entry")
 }
