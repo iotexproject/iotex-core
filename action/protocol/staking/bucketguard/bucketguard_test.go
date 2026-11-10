@@ -235,6 +235,7 @@ func TestValidate(t *testing.T) {
 		"transfer-badKey":   op(OpTransfer, func(m *GuardedBucketOp) { m.NewOwner, m.NewGuard = addr, &NewGuard{AlgID: alg, PublicKey: zeroPub()} }),
 		"candidate-noName":  op(OpChangeCandidate, func(m *GuardedBucketOp) { m.ExpectedCandidateID = addr }),
 		"candidate-noID":    op(OpChangeCandidate, func(m *GuardedBucketOp) { m.CandidateName = "abc" }),
+		"candidate-badUTF8": op(OpChangeCandidate, func(m *GuardedBucketOp) { m.CandidateName, m.ExpectedCandidateID = "ab\xff", addr }),
 		"rotate-noKey":      op(OpRotate, func(*GuardedBucketOp) {}),
 		"rotate+clear":      op(OpRotate, func(m *GuardedBucketOp) { m.NewGuard, m.ClearGuard = zeroNewGuard(), true }),
 		"restake+newOwner":  op(OpRestake, func(m *GuardedBucketOp) { m.NewOwner = addr }),

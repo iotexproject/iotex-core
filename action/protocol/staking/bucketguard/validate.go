@@ -3,6 +3,7 @@ package bucketguard
 import (
 	"bytes"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 )
@@ -49,6 +50,9 @@ func (m *GuardedBucketOp) Validate(p Params) error {
 	}
 	if size := m.CanonicalSize(); size > limit {
 		return malformed("canonical size %d exceeds %d", size, limit)
+	}
+	if !utf8.ValidString(m.CandidateName) {
+		return malformed("candidateName is not valid UTF-8")
 	}
 	return m.validateFields(p)
 }
