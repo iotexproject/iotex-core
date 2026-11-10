@@ -452,3 +452,46 @@ func TestBucketGuardRecordOutsideVoterScans(t *testing.T) {
 		r.Equal([]address.Address{nativeVoter, contractVoter}, voters, "limits %v", limits)
 	}
 }
+
+// TestGuardActionCheckedBeforeExecution covers a guard action that reaches
+// execution without its stateless checks, as one in a TX_CONTAINER placed in
+// a block by a proposer that skipped them. Execution must refuse it with a
+// non-receipt error, which invalidates the block on every node, and write
+// nothing.
+func TestGuardActionCheckedBeforeExecution(t *testing.T) {
+	owner1, owner2 := identityset.Address(1), identityset.Address(2)
+	cands := []*candidateConfig{{owner1, identityset.Address(7), owner1, "test1"}}
+	guardKey := testGuardKey(t, 1)
+	for _, tc := range []struct {
+		name string
+		op   *bucketguard.GuardedBucketOp
+		gas  func(uint64) uint64
+	}{
+		{"ROTATE without newGuard", &bucketguard.GuardedBucketOp{Op: bucketguard.OpRotate}, func(g uint64) uint64 { return g }},
+		{"gas limit below the intrinsic gas", &bucketguard.GuardedBucketOp{Op: bucketguard.OpUnstake}, func(g uint64) uint64 { return g - 1 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := require.New(t)
+			ctrl := gomock.NewController(t)
+			ctx := guardTestCtx(t, true, timeBlock, identityset.Address(3))
+			sm, p, _, _ := initTestStateWithHeight(t, ctrl, []*bucketConfig{
+				{owner1, owner2, "1200000000000000000000000", 30, false, false, nil, 0},
+			}, cands, 10)
+			cur := guardBucket(t, sm, 0, guardKey, 1, 0)
+			counted := &writeCountingSM{StateManager: sm}
+			csm, err := NewCandidateStateManagerWithContext(ctx, counted)
+			r.NoError(err)
+			op := *tc.op
+			act := action.NewGuardedBucketOp(signGuardOp(ctx, t, guardKey, owner2, cur, &op))
+			gas, err := act.IntrinsicGas()
+			r.NoError(err)
+			elp := (&action.EnvelopeBuilder{}).SetGasLimit(tc.gas(gas)).SetAction(act).Build()
+			counted.writes = 0
+			_, err = p.handle(ctx, elp, csm)
+			r.Error(err)
+			_, isReceipt := err.(ReceiptError)
+			r.False(isReceipt, "the block must be invalid, got receipt %s", receiptStatusOf(err))
+			r.Zero(counted.writes)
+		})
+	}
+}

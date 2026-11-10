@@ -281,20 +281,22 @@ func guardDomain(ctx context.Context) bucketguard.Domain {
 	return bucketguard.NewDomain(protocol.MustGetBlockchainCtx(ctx).ChainID, g.Hash())
 }
 
-func (p *Protocol) validateBindBucketGuard(ctx context.Context, _ *action.BindBucketGuard) error {
+func (p *Protocol) validateBindBucketGuard(ctx context.Context, elp action.Envelope) error {
 	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
 		return errors.Wrap(action.ErrInvalidAct, "bucket guard is disabled")
 	}
-	return nil
+	return checkGuardEnvelope(elp)
 }
 
-// validateGuardedBucketOp applies the staking rules of the underlying
-// operation, exactly as for the legacy actions; the guard fields were checked
-// by SanityCheck.
-func (p *Protocol) validateGuardedBucketOp(ctx context.Context, act *action.GuardedBucketOp) error {
+// validateGuardedBucketOp applies the stateless guard checks and the staking
+// rules of the underlying operation, exactly as for the legacy actions.
+func (p *Protocol) validateGuardedBucketOp(ctx context.Context, elp action.Envelope, act *action.GuardedBucketOp) error {
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	if !featureCtx.EnableBucketGuard {
 		return errors.Wrap(action.ErrInvalidAct, "bucket guard is disabled")
+	}
+	if err := checkGuardEnvelope(elp); err != nil {
+		return err
 	}
 	op := act.Guard()
 	switch op.Op {
@@ -306,6 +308,28 @@ func (p *Protocol) validateGuardedBucketOp(ctx context.Context, act *action.Guar
 		if !action.IsValidCandidateName(op.CandidateName) {
 			return action.ErrInvalidCanName
 		}
+	}
+	return nil
+}
+
+// checkGuardEnvelope repeats the stateless checks of a guard action (IIP §8,
+// §9.1): its SanityCheck, and its intrinsic gas against the gas limit. The
+// generic validator runs both, but an action submitted in a TX_CONTAINER is
+// checked by the action pool as the container, whose SanityCheck does not read
+// the calldata and whose intrinsic gas uses the execution formula, and a block
+// validator skips actions its pool has already seen. The protocol therefore
+// checks again in Validate, so that proposers leave such an action out, and
+// before execution, where a failure invalidates the block on every node.
+func checkGuardEnvelope(elp action.Envelope) error {
+	if err := elp.Action().SanityCheck(); err != nil {
+		return errors.Wrap(action.ErrInvalidAct, err.Error())
+	}
+	gas, err := elp.IntrinsicGas()
+	if err != nil {
+		return errors.Wrap(action.ErrInvalidAct, err.Error())
+	}
+	if gas > elp.Gas() {
+		return errors.Wrapf(action.ErrIntrinsicGas, "guard action needs %d gas, limit %d", gas, elp.Gas())
 	}
 	return nil
 }
