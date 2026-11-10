@@ -487,8 +487,15 @@ func (ap *actPool) validate(ctx context.Context, selp *action.SealedEnvelope) er
 		return err
 	}
 	if cached, ok := ap.allActions.Get(selpHash); ok {
+		// A cache hit is keyed by action hash, and a folded TX_CONTAINER and
+		// its unfolded native action share that hash. Only skip validation when
+		// the cached envelope is the same encoding: a native action must not be
+		// waved through on the strength of a cached container, or SanityCheck
+		// would be skipped on the block-validation path and the block would be
+		// accepted here but rejected by a node without the container cached.
 		if prev, ok := cached.(*action.SealedEnvelope); ok &&
-			address.Equal(prev.SenderAddress(), caller) {
+			address.Equal(prev.SenderAddress(), caller) &&
+			prev.Encoding() == selp.Encoding() {
 			return nil
 		}
 	}
