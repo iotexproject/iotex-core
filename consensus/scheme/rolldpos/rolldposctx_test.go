@@ -437,3 +437,59 @@ func getBlockforctx(t *testing.T, i int, sign bool, prevHash hash.Hash256) block
 	b := block.Block{Header: header}
 	return b
 }
+
+func TestNewProposalEndorsementRejectsFutureTimestamp(t *testing.T) {
+	require := require.New(t)
+
+	t.Run("unit-validateProposalTimestamp", func(t *testing.T) {
+		blk := block.NewBlockDeprecated(1, 1, hash.ZeroHash256, time.Now().Add(time.Hour), identityset.PrivateKey(0).PublicKey(), nil)
+		require.ErrorContains(validateProposalTimestamp(blk, time.Now()), "in the future")
+		// within the bound: an honest proposal is stamped with its round's
+		// start time, never later than the producer's own clock
+		require.NoError(validateProposalTimestamp(blk, blk.Timestamp()))
+		require.NoError(validateProposalTimestamp(
+			block.NewBlockDeprecated(1, 1, hash.ZeroHash256, time.Now(), identityset.PrivateKey(0).PublicKey(), nil),
+			time.Now(),
+		))
+	})
+
+	t.Run("endorsement-refused-for-future-proposal", func(t *testing.T) {
+		cfg := DefaultConfig
+		g := genesis.TestDefault()
+		b, sf, _, rp, _ := makeChain(t)
+		rctx, err := NewRollDPoSCtx(
+			consensusfsm.NewConsensusConfig(cfg.FSM, consensusfsm.DefaultDardanellesUpgradeConfig, consensusfsm.DefaultWakeUpgradeConfig, g, cfg.Delay),
+			db.DefaultConfig,
+			true,
+			time.Second,
+			true,
+			NewChainManager(b, sf, &dummyBlockBuildFactory{}),
+			block.NewDeserializer(0),
+			rp,
+			nil,
+			dummyCandidatesByHeightFunc,
+			dummyCandidatesByHeightFunc,
+			nil,
+			clock.New(),
+			g.BeringBlockHeight,
+		)
+		require.NoError(err)
+		require.NoError(rctx.Start(context.Background()))
+		defer func() { require.NoError(rctx.Stop(context.Background())) }()
+
+		tip := b.TipHeight()
+		// a proposal stamped an hour ahead is refused before any other check
+		futureBlk := block.NewBlockDeprecated(1, tip+1, b.TipHash(), time.Now().Add(time.Hour), identityset.PrivateKey(0).PublicKey(), nil)
+		ecm := NewEndorsedConsensusMessage(tip+1, newBlockProposal(futureBlk, nil), nil)
+		_, err = rctx.NewProposalEndorsement(ecm)
+		require.ErrorContains(err, "in the future")
+
+		// an honestly stamped proposal passes the timestamp check and fails
+		// later (bad signature etc.) - the check must not overreach
+		blk := block.NewBlockDeprecated(1, tip+1, b.TipHash(), time.Now(), identityset.PrivateKey(0).PublicKey(), nil)
+		ecm = NewEndorsedConsensusMessage(tip+1, newBlockProposal(blk, nil), nil)
+		_, err = rctx.NewProposalEndorsement(ecm)
+		require.Error(err)
+		require.NotContains(err.Error(), "in the future")
+	})
+}

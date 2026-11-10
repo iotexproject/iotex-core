@@ -330,16 +330,21 @@ func (cr *CandidateRegister) LoadProto(pbAct *iotextypes.CandidateRegister) erro
 			copy(cr.blsPop, pop)
 		}
 	}
+	// an absent StakedAmount decodes to zero, the same default Transfer,
+	// Execution and DepositToStake use. Which field carries it is decided by
+	// withBLS, matching Amount().
+	amount := big.NewInt(0)
 	if len(pbAct.GetStakedAmount()) > 0 {
-		amount, ok := new(big.Int).SetString(pbAct.GetStakedAmount(), 10)
+		v, ok := new(big.Int).SetString(pbAct.GetStakedAmount(), 10)
 		if !ok {
 			return errors.Errorf("invalid amount %s", pbAct.GetStakedAmount())
 		}
-		if withBLS {
-			cr.value = amount
-		} else {
-			cr.amount = amount
-		}
+		amount = v
+	}
+	if withBLS {
+		cr.value = amount
+	} else {
+		cr.amount = amount
 	}
 
 	cr.payload = nil

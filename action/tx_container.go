@@ -176,6 +176,14 @@ func (etx *txContainer) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if err := tx.UnmarshalBinary(raw); err != nil {
 		return err
 	}
+	if _, r, s := tx.RawSignatureValues(); r == nil || s == nil || r.BitLen() > 256 || s.BitLen() > 256 {
+		return errors.Wrap(ErrInvalidAct, "invalid signature R/S length")
+	}
+	for _, auth := range tx.SetCodeAuthorizations() {
+		if auth.ChainID.BitLen() > 32 {
+			return errors.Wrap(ErrInvalidAct, "authorization chain ID exceeds 32 bits")
+		}
+	}
 	etx.chainID = pbAct.GetChainID()
 	etx.raw = make([]byte, len(raw))
 	copy(etx.raw, raw)
@@ -234,7 +242,12 @@ func (etx *txContainer) Unfold(selp *SealedEnvelope, ctx context.Context, checke
 
 func (etx *txContainer) Cost() (*big.Int, error) {
 	maxExecFee := big.NewInt(0).Mul(etx.tx.GasPrice(), big.NewInt(0).SetUint64(etx.tx.Gas()))
-	return maxExecFee.Add(etx.tx.Value(), maxExecFee), nil
+	cost := maxExecFee.Add(etx.tx.Value(), maxExecFee)
+	// account for blob fee, as envelope.Cost does
+	if etx.tx.Type() == types.BlobTxType {
+		cost.Add(cost, new(big.Int).Mul(etx.tx.BlobGasFeeCap(), new(big.Int).SetUint64(etx.tx.BlobGas())))
+	}
+	return cost, nil
 }
 
 func (etx *txContainer) IntrinsicGas() (uint64, error) {

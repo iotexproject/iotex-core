@@ -67,21 +67,43 @@ func (cl *chainListener) Stop() error {
 	return nil
 }
 
-// ReceiveBlock handles the block
+// ReceiveBlock handles the block.
+//
+// Range holds the stream map's write lock for the whole iteration, so anything
+// slow done inside it also blocks AddResponder and RemoveResponder -- i.e. every
+// new and closing subscription on the node. Responders are therefore invoked
+// outside the lock, on a snapshot, and the ones that failed are evicted
+// afterwards.
 func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
-	// pass the block to every responder
+	type subscription struct {
+		id string
+		r  apitypes.Responder
+	}
+	var subs []subscription
 	cl.streamMap.Range(func(key, value interface{}) error {
 		r, ok := value.(apitypes.Responder)
 		if !ok {
 			log.L().Error("streamMap stores a value which is not a Responder")
+			// returning an error evicts the entry (EvictOnErrorOption)
 			return errorUnsupportedType
 		}
-		err := r.Respond(key.(string), blk)
-		if err != nil {
-			log.L().Error("responder failed to process block", zap.Error(err))
-		}
-		return err
+		subs = append(subs, subscription{id: key.(string), r: r})
+		return nil
 	})
+	var failed []string
+	for _, sub := range subs {
+		if err := sub.r.Respond(sub.id, blk); err != nil {
+			log.L().Warn("responder failed to process block, dropping subscription",
+				zap.String("id", sub.id), zap.Error(err))
+			failed = append(failed, sub.id)
+		}
+	}
+	for _, id := range failed {
+		cl.streamMap.Delete(id)
+	}
+	if len(failed) > 0 {
+		apiLimitMtcs.WithLabelValues("listener").Set(float64(cl.streamMap.Count()))
+	}
 	return nil
 }
 

@@ -1467,6 +1467,7 @@ func TestNativeStakingVoteBug(t *testing.T) {
 	cfg.DardanellesUpgrade.BlockInterval = time.Second * 8640
 	cfg.Plugins[config.GatewayPlugin] = nil
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 
 	var (
 		// successExpect       = &basicActionExpect{nil, uint64(iotextypes.ReceiptStatus_Success), ""}
@@ -1610,6 +1611,7 @@ func TestCandidateBLSPublicKey(t *testing.T) {
 	cfg.API.HTTPPort = cfg.API.GRPCPort + 1000
 	cfg.API.WebSocketPort = cfg.API.HTTPPort + 1000
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 
 	var (
 		chainID         = test.cfg.Chain.ID
@@ -1726,6 +1728,7 @@ func TestCandidateBLSPoP(t *testing.T) {
 	cfg.API.HTTPPort = cfg.API.GRPCPort + 1000
 	cfg.API.WebSocketPort = cfg.API.HTTPPort + 1000
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 
 	var (
 		chainID        = test.cfg.Chain.ID
