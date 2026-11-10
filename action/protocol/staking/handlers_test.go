@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
@@ -690,7 +691,8 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 		act, err := action.NewCandidateUpdate("", "", identityset.Address(29).String())
 		r.NoError(err)
 		g := genesis.TestDefault()
-		g.ToBeEnabledBlockHeight = 1
+		g.ZanzibarBlockHeight = 1
+		g.ZanzibarBetaBlockHeight = 1
 		ctx := genesis.WithGenesisContext(context.Background(), g)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: candidate.Owner, GasPrice: big.NewInt(0)})
@@ -725,7 +727,8 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 		)
 		r.NoError(err)
 		g := genesis.TestDefault()
-		g.ToBeEnabledBlockHeight = 1
+		g.ZanzibarBlockHeight = 1
+		g.ZanzibarBetaBlockHeight = 1
 		ctx := genesis.WithGenesisContext(context.Background(), g)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1, BlockTimeStamp: time.Now()})
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: owner, GasPrice: big.NewInt(0)})
@@ -759,7 +762,8 @@ func TestCandidateRewardAddressUpdatedAtIIP59(t *testing.T) {
 			act, err := action.NewCandidateUpdate("", "", test.reward)
 			r.NoError(err)
 			g := genesis.TestDefault()
-			g.ToBeEnabledBlockHeight = test.forkHeight
+			g.ZanzibarBlockHeight = test.forkHeight
+			g.ZanzibarBetaBlockHeight = test.forkHeight
 			ctx := genesis.WithGenesisContext(context.Background(), g)
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1})
 			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: candidate.Owner, GasPrice: big.NewInt(0)})
@@ -3412,7 +3416,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	return ctx, cost
 }
 
-func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Protocol, *Candidate, *Candidate) {
+func initAll(t *testing.T, ctrl *gomock.Controller) (*mock_chainmanager.MockStateManager, *Protocol, *Candidate, *Candidate) {
 	require := require.New(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)

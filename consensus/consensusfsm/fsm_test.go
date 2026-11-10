@@ -59,6 +59,71 @@ func TestBackdoorEvt(t *testing.T) {
 	}
 }
 
+func TestPrepareBackoff(t *testing.T) {
+	t.Parallel()
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	mockClock := clock.NewMock()
+	mockCtx := NewMockContext(ctrl)
+	mockCtx.EXPECT().Logger().Return(log.Logger("consensus")).AnyTimes()
+	mockCtx.EXPECT().EventChanSize().Return(uint(10)).AnyTimes()
+	mockCtx.EXPECT().Active().Return(true).AnyTimes()
+	mockCtx.EXPECT().NewConsensusEvent(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(eventType fsm.EventType, data interface{}) []*ConsensusEvent {
+			return []*ConsensusEvent{
+				{
+					eventType: eventType,
+					data:      data,
+				},
+			}
+		}).AnyTimes()
+	cfsm, err := NewConsensusFSM(mockCtx, mockClock)
+	require.NoError(err)
+	evt := &ConsensusEvent{eventType: BackdoorEvent, data: sPrepare}
+	fail := errors.New("prepare failure")
+
+	// the first failure retries immediately
+	mockCtx.EXPECT().Prepare().Return(fail).Times(1)
+	_, err = cfsm.prepare(evt)
+	require.NoError(err)
+	require.Equal(ePrepare, (<-cfsm.evtq).Type())
+
+	// the second consecutive failure waits prepareBackoffBase
+	mockCtx.EXPECT().Prepare().Return(fail).Times(1)
+	_, err = cfsm.prepare(evt)
+	require.NoError(err)
+	time.Sleep(50 * time.Millisecond)
+	require.Equal(0, len(cfsm.evtq))
+	mockClock.Add(prepareBackoffBase)
+	require.Equal(ePrepare, (<-cfsm.evtq).Type())
+
+	// the third failure doubles the wait
+	mockCtx.EXPECT().Prepare().Return(fail).Times(1)
+	_, err = cfsm.prepare(evt)
+	require.NoError(err)
+	time.Sleep(50 * time.Millisecond)
+	mockClock.Add(prepareBackoffBase)
+	time.Sleep(50 * time.Millisecond)
+	require.Equal(0, len(cfsm.evtq))
+	mockClock.Add(prepareBackoffBase)
+	require.Equal(ePrepare, (<-cfsm.evtq).Type())
+
+	// a successful prepare resets the streak
+	mockCtx.EXPECT().Prepare().Return(nil).Times(1)
+	mockCtx.EXPECT().Proposal().Return(nil, nil).Times(1)
+	mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
+	mockCtx.EXPECT().HasDelegate().Return(false).Times(1)
+	_, err = cfsm.prepare(evt)
+	require.NoError(err)
+	require.Equal(ePrepare, (<-cfsm.evtq).Type())
+
+	// so the next failure retries immediately again
+	mockCtx.EXPECT().Prepare().Return(fail).Times(1)
+	_, err = cfsm.prepare(evt)
+	require.NoError(err)
+	require.Equal(ePrepare, (<-cfsm.evtq).Type())
+}
+
 func TestStateTransitionFunctions(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)

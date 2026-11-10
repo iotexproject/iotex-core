@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/testingpb"
 
 	"github.com/iotexproject/iotex-core/v2/testutil"
@@ -167,5 +168,30 @@ func TestUnicast(t *testing.T) {
 			r.NoError(err)
 			return counts[uint8(i)] == len(neighbors) && src == info.ID.String(), nil
 		}))
+	}
+}
+
+func TestConsensusTopicMsgTypes(t *testing.T) {
+	r := require.New(t)
+	for _, unified := range []bool{false, true} {
+		p := &agent{}
+		p.unifiedTopic.Store(unified)
+		consensusTopic := _broadcastTopic + _broadcastSubTopicConsensus + p.topicSuffix
+		for v := range iotexrpc.MessageType_name {
+			mt := iotexrpc.MessageType(v)
+			// every type routed to the consensus topic must pass its validator
+			if p.messageTopic(mt) == consensusTopic {
+				r.True(isConsensusTopicMsgType(mt), mt.String())
+			}
+		}
+	}
+	r.True(isConsensusTopicMsgType(iotexrpc.MessageType_CONSENSUS))
+	for _, mt := range []iotexrpc.MessageType{
+		iotexrpc.MessageType_ACTION,
+		iotexrpc.MessageType_ACTIONS,
+		iotexrpc.MessageType_BLOCK,
+		iotexrpc.MessageType_BUNDLE,
+	} {
+		r.False(isConsensusTopicMsgType(mt), mt.String())
 	}
 }

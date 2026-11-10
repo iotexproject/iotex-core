@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/testutil/testdb"
 )
 
 // TestHandleCandidateUpdate_DuplicateBLSKeyIsDeterministic is the receipt-level
@@ -46,6 +47,10 @@ func TestHandleCandidateUpdate_DuplicateBLSKeyIsDeterministic(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			sm, p, candA, candB := initAll(t, ctrl)
+			// Post-fork, a failure receipt rolls the state manager back to the
+			// pre-action snapshot. The mock keeps no undo log, so the call only
+			// needs to be accepted; nothing here asserts on it.
+			testdb.AllowRevert(sm)
 
 			// Put both candidates on the same pubkey, the pre-fork state the
 			// uniqueness rule was never able to prevent.

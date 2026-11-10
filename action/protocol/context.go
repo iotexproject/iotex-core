@@ -185,7 +185,7 @@ type (
 		// per-candidate CandidateRewardSnapshot and rewarding stays on the legacy
 		// Hermes path. Post-fork (false) the snapshot is written at every
 		// PutPollResult and rewarding consumes it. Bound to
-		// !g.IsToBeEnabled(height): default zero-value = active after fork.
+		// !g.IsZanzibar(height): default zero-value = active after fork.
 		NoVoterRewardDistribution bool
 		// FixEpochSettlementFaultHandling corrects how faults raised during
 		// epoch settlement are classified, in three places:
@@ -207,8 +207,8 @@ type (
 		// what turns IIP-59 on, so a chain where it has already activated is
 		// executing the pre-correction behaviour; changing it in place would
 		// alter blocks that chain has already committed. This flag therefore
-		// needs its own height, one fork later than the gate above. Both are
-		// wired to IsToBeEnabled until the named heights are assigned.
+		// needs its own height, one fork later than the gate above:
+		// Zanzibar Beta.
 		FixEpochSettlementFaultHandling bool
 		// RequireProfileForHermesMigration makes the activation-block Hermes
 		// opt-in migration skip candidates whose DelegateProfile portions are
@@ -220,7 +220,14 @@ type (
 		// one-shot that runs in the single block that gate turns on at. A chain
 		// where it has already fired has that block committed; changing what it
 		// did would alter the block's receipt root and fork any node replaying
-		// history. Wired to IsToBeEnabled until the named height is assigned.
+		// history. Carried by Zanzibar Beta.
+		//
+		// Because that migration is a one-shot in the block Zanzibar activates
+		// at, this flag only ever has an effect where Zanzibar Beta is not
+		// scheduled after Zanzibar. On a chain that activated Zanzibar first
+		// the migration has already run unguarded and cannot be re-run, so the
+		// flag is inert there by construction -- it exists to protect a chain
+		// that activates both together. See ZanzibarBetaBlockHeight.
 		RequireProfileForHermesMigration bool
 		// EmitEraFreezeLog makes the era freeze emit one DelegateRewardFrozen
 		// log per frozen delegate.
@@ -233,8 +240,7 @@ type (
 		// Receipt logs are part of the receipt root, so this needs its own
 		// height rather than riding on the gate that turns IIP-59 on: a chain
 		// that has already produced freeze blocks without these logs would
-		// recompute different roots for them. Wired to IsToBeEnabled until the
-		// named height is assigned.
+		// recompute different roots for them. Carried by Zanzibar Beta.
 		EmitEraFreezeLog bool
 		// EnforceBLSPoP gates the BLS proof-of-possession requirement at
 		// candidate register / update. The staking handler validates
@@ -254,6 +260,73 @@ type (
 		// An update that omits both leaves any previously registered key
 		// untouched.
 		OptionalCandidateBLSPublicKey bool
+		// ValidateHeaderGasUsed makes a validating node recompute the header's
+		// gasUsed and blobGasUsed from the receipts it produced while executing
+		// the block, and reject the block when either disagrees with the value
+		// the proposer put in the header.
+		//
+		// The proposer fills both fields from its own receipts (see
+		// workingSet.CreateBuilder), but until now nothing on the validating
+		// side re-derived them, so the two header fields were accepted as
+		// given. gasUsed feeds the EIP-1559 base fee of the next block and
+		// blobGasUsed feeds its excessBlobGas, and both are served over the
+		// API, so they need to agree with the executed block.
+		//
+		// Needs its own height: a chain that has already committed blocks whose
+		// header gas fields do not match their receipts must keep accepting
+		// them on replay, so the check may only start at a fork boundary.
+		ValidateHeaderGasUsed bool
+		// CorrectStakeMigrationGas budgets the contract call a stake migration
+		// makes with the action's gas limit minus the migration's own intrinsic
+		// gas, instead of the full gas limit.
+		//
+		// The migration receipt reports the intrinsic gas plus whatever the
+		// contract call consumed. While the call is budgeted with the whole gas
+		// limit, that sum can exceed the gas limit the action declared -- and
+		// the gas limit is what the block gas budget was reserved against, so a
+		// receipt reporting beyond it reports gas the block never had. Taking
+		// the intrinsic gas out of the call's budget bounds the reported total
+		// by the declared limit, which is also what the gas estimator has always
+		// assumed (it quotes contract gas + intrinsic gas).
+		//
+		// Both the budget handed to the EVM and the gas on the receipt are
+		// consensus data, so this needs its own height: a chain that has already
+		// executed migrations under the old budget would recompute different
+		// receipts for those blocks. It rides Zanzibar Gamma, which is
+		// unscheduled.
+		CorrectStakeMigrationGas bool
+		// CheckedBlockGasDeduction subtracts a receipt's gas from the remaining
+		// block gas budget without letting the unsigned counter wrap: a receipt
+		// reporting more gas than is left saturates the budget at zero rather
+		// than rolling it over to near 2^64, which would let the rest of the
+		// block run as if the budget were untouched.
+		//
+		// Saturating is deterministic -- every node lands on the same remaining
+		// budget -- and the following action is then rejected for want of gas,
+		// so the condition is never absorbed silently. Changing the remaining
+		// budget changes which actions a block may carry, so this is gated at
+		// its own height. It rides Zanzibar Gamma, which is unscheduled.
+		CheckedBlockGasDeduction bool
+		// RevertStakingStateOnFailedReceipt makes a staking action that ends in
+		// a failure receipt discard every state-manager write it made before
+		// the failure, instead of only rolling back the protocol view.
+		//
+		// The handlers mutate the state manager as they go -- a bucket is
+		// written, then the bucket pool is debited, then the caller's account
+		// is stored -- and a verdict raised part way through is reported as a
+		// failure receipt rather than an error. Without this, whatever the
+		// handler had already written stays in committed state under a receipt
+		// that says the action did nothing.
+		//
+		// The rollback runs before gas is deposited and the nonce is bumped, so
+		// a failed action still charges its caller exactly as it does today;
+		// what it no longer keeps is the half-applied state.
+		//
+		// Needs its own height: what state a failed action leaves behind is
+		// part of the state root, so a chain that has already committed such
+		// blocks would recompute different roots for them on replay. It rides
+		// Zanzibar Gamma, which is unscheduled.
+		RevertStakingStateOnFailedReceipt bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -428,14 +501,27 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			PrePectraEVM:                            !g.IsYap(height),
 			AlwaysWriteCachedContract:               !g.IsYap(height),
 			NoCandidateExitQueue:                    !g.IsYap(height),
-			FixInContractTransferLogTopic:           g.IsToBeEnabled(height),
-			CorrectPrestateForAbsentKeys:            g.IsToBeEnabled(height),
-			NoVoterRewardDistribution:               !g.IsToBeEnabled(height),
-			FixEpochSettlementFaultHandling:         g.IsToBeEnabled(height),
-			RequireProfileForHermesMigration:        g.IsToBeEnabled(height),
-			EmitEraFreezeLog:                        g.IsToBeEnabled(height),
-			EnforceBLSPoP:                           g.IsToBeEnabled(height),
-			OptionalCandidateBLSPublicKey:           g.IsToBeEnabled(height),
+			// Zanzibar. These five are exactly what v2.5.0-rc0 activated, and
+			// testnet has already run it -- so this set is fixed by what that
+			// chain committed, not by what would be tidy to group together.
+			FixInContractTransferLogTopic: g.IsZanzibar(height),
+			CorrectPrestateForAbsentKeys:  g.IsZanzibar(height),
+			NoVoterRewardDistribution:     !g.IsZanzibar(height),
+			EnforceBLSPoP:                 g.IsZanzibar(height),
+			OptionalCandidateBLSPublicKey: g.IsZanzibar(height),
+			// Zanzibar Beta. Every one of these corrects behaviour Zanzibar
+			// already turned on, and none of them existed in rc0. Selecting
+			// them with Zanzibar would rewrite blocks testnet has committed.
+			FixEpochSettlementFaultHandling:  g.IsZanzibarBeta(height),
+			RequireProfileForHermesMigration: g.IsZanzibarBeta(height),
+			EmitEraFreezeLog:                 g.IsZanzibarBeta(height),
+			// Zanzibar Gamma: all found after Beta was scheduled, so folding
+			// them into Beta would rewrite blocks a chain that activated Beta
+			// has already committed.
+			ValidateHeaderGasUsed:             g.IsZanzibarGamma(height),
+			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
+			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
+			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
 		},
 	)
 }

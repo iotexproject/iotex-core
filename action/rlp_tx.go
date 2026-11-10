@@ -123,6 +123,9 @@ func ExtractTypeSigPubkey(tx *types.Transaction) (iotextypes.Encoding, []byte, c
 	if V.BitLen() > 8 {
 		return encoding, nil, nil, ErrNotSupported
 	}
+	if R == nil || S == nil || R.BitLen() > 256 || S.BitLen() > 256 {
+		return encoding, nil, nil, errors.Wrap(ErrNotSupported, "invalid signature R/S length")
+	}
 
 	var (
 		r, s   = R.Bytes(), S.Bytes()

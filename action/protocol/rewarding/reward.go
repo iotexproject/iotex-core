@@ -846,7 +846,7 @@ func (p *Protocol) GrantEpochReward(
 	// slashing, and foundation bonus run every epoch regardless.
 	//
 	// There is no second condition. The LSD owner index this drains is built
-	// in full in the single block at g.ToBeEnabledBlockHeight, from staking's
+	// in full in the single block at g.ZanzibarBlockHeight, from staking's
 	// CreatePreStates (staking.backfillOwnerIndex) -- i.e. before any action of
 	// that block runs, and so before the earliest block at which a freeze could
 	// open an era window. There is no window in which the index is partial and

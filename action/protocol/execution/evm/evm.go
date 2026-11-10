@@ -704,7 +704,11 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB stateDB) ([]by
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, action.ErrInsufficientFunds
+		// A gas limit below the intrinsic cost is a gas shortfall, not a funds
+		// shortfall: no balance is read here, and the branch below is the one
+		// that checks whether the sender can pay. ErrIntrinsicGas is what the
+		// admission-time check reports for the same condition.
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, action.ErrIntrinsicGas
 	}
 	traceGasChange(remainingGas, remainingGas-intriGas, tracing.GasChangeTxIntrinsicGas)
 	remainingGas -= intriGas

@@ -594,24 +594,36 @@ func toLogPb(lg *action.Log, blkHash hash.Hash256) *iotextypes.Log {
 
 // StreamBlocks streams blocks
 func (svr *gRPCHandler) StreamBlocks(_ *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
-	errChan := make(chan error)
-	defer close(errChan)
+	// buffered and never closed: the subscription reports its outcome with a
+	// non-blocking send, which must not race a close() from this goroutine
+	errChan := make(chan error, 1)
 	chainListener := svr.coreService.ChainListener()
-	id, err := chainListener.AddResponder(NewGRPCBlockListener(
+	responder := NewGRPCBlockListener(
 		func(resp interface{}) (int, error) {
 			return 0, stream.Send(resp.(*iotexapi.StreamBlocksResponse))
 		},
 		errChan,
-	))
+	)
+	id, err := chainListener.AddResponder(responder)
 	if err != nil {
+		// registration failed: the responder's sender goroutine is already
+		// running, so tear it down here or it (and its channels) leak
+		responder.Exit()
 		return status.Error(codes.Internal, err.Error())
 	}
-	err = <-errChan
-	chainListener.RemoveResponder(id)
-	if err != nil {
-		return status.Error(codes.Aborted, err.Error())
+	defer chainListener.RemoveResponder(id)
+	// wake on either a stream error/exit or client cancellation; without the
+	// context case, a subscription that never produces output (e.g. a filter
+	// that never matches) stays registered forever after the client goes away
+	select {
+	case err = <-errChan:
+		if err != nil {
+			return status.Error(codes.Aborted, err.Error())
+		}
+		return nil
+	case <-stream.Context().Done():
+		return status.FromContextError(stream.Context().Err()).Err()
 	}
-	return nil
 }
 
 // StreamLogs streams logs that match the filter condition
@@ -619,25 +631,35 @@ func (svr *gRPCHandler) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexa
 	if in.GetFilter() == nil {
 		return status.Error(codes.InvalidArgument, "empty filter")
 	}
-	errChan := make(chan error)
-	defer close(errChan)
+	// buffered and never closed: the subscription reports its outcome with a
+	// non-blocking send, which must not race a close() from this goroutine
+	errChan := make(chan error, 1)
 	chainListener := svr.coreService.ChainListener()
-	id, err := chainListener.AddResponder(NewGRPCLogListener(
+	responder := NewGRPCLogListener(
 		logfilter.NewLogFilter(in.GetFilter()),
 		func(in interface{}) (int, error) {
 			return 0, stream.Send(in.(*iotexapi.StreamLogsResponse))
 		},
 		errChan,
-	))
+	)
+	id, err := chainListener.AddResponder(responder)
 	if err != nil {
+		// registration failed: tear down the already-running sender goroutine
+		responder.Exit()
 		return status.Error(codes.Internal, err.Error())
 	}
-	err = <-errChan
-	chainListener.RemoveResponder(id)
-	if err != nil {
-		return status.Error(codes.Aborted, err.Error())
+	defer chainListener.RemoveResponder(id)
+	// a log filter that never matches produces no output, so also wake on
+	// client cancellation instead of staying registered forever
+	select {
+	case err = <-errChan:
+		if err != nil {
+			return status.Error(codes.Aborted, err.Error())
+		}
+		return nil
+	case <-stream.Context().Done():
+		return status.FromContextError(stream.Context().Err()).Err()
 	}
-	return nil
 }
 
 // GetElectionBuckets returns the native election buckets.

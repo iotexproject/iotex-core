@@ -8,6 +8,7 @@ package blockchain
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -15,6 +16,12 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
 )
+
+// _slowSubscriberWarnInterval is how often to report that a block subscriber
+// has stopped draining. commitBlock is blocked for the whole duration, holding
+// the chain write lock, so this must be visible well before an operator
+// notices the node has stopped following the chain.
+const _slowSubscriberWarnInterval = 5 * time.Second
 
 type (
 	// PubSubManager is an interface which handles multi-thread publisher and subscribers
@@ -90,12 +97,56 @@ func (ps *pubSub) RemoveBlockListener(s BlockCreationSubscriber) error {
 	return errors.New("cannot find subscription")
 }
 
-// SendBlockToSubscribers sends block to every subscriber by using buffer channel
+// SendBlockToSubscribers sends block to every subscriber by using buffer channel.
+//
+// The send stays blocking on purpose: subscribers such as the indexer and the
+// action pool must not miss a block. But the caller is commitBlock, running
+// under the chain write lock, so a subscriber that stops draining halts the
+// node -- make that loud instead of silent. The listener slice is snapshotted
+// first so a stalled subscriber cannot also starve AddBlockListener.
 func (ps *pubSub) SendBlockToSubscribers(blk *block.Block) {
 	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-	for _, elem := range ps.blocklisteners {
-		elem.pendingBlksBuffer <- blk
+	listeners := make([]*pubSubElem, len(ps.blocklisteners))
+	copy(listeners, ps.blocklisteners)
+	ps.lock.RUnlock()
+
+	for _, elem := range listeners {
+		// Every send also watches elem.cancel: a concurrent RemoveBlockListener
+		// or Stop closes it and lets the handler goroutine exit, after which
+		// nothing drains pendingBlksBuffer. Without the cancel case a send to a
+		// removed subscriber's full buffer would block commitBlock forever.
+		select {
+		case elem.pendingBlksBuffer <- blk:
+			continue
+		case <-elem.cancel:
+			continue
+		default:
+		}
+		start := time.Now()
+		done := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(_slowSubscriberWarnInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-done:
+					return
+				case <-ticker.C:
+					log.L().Error("block subscriber is not draining; block commit is stalled",
+						zap.Uint64("height", blk.Height()),
+						zap.Duration("stalled", time.Since(start)))
+				}
+			}
+		}()
+		select {
+		case elem.pendingBlksBuffer <- blk:
+		case <-elem.cancel:
+		}
+		close(done)
+		if waited := time.Since(start); waited > _slowSubscriberWarnInterval {
+			log.L().Warn("block subscriber resumed draining",
+				zap.Uint64("height", blk.Height()), zap.Duration("stalled", waited))
+		}
 	}
 }
 

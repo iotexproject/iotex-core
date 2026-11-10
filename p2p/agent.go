@@ -307,7 +307,7 @@ func (p *agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	broadcastValidator := func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+	validateBroadcast := func(ctx context.Context, pid peer.ID, msg *pubsub.Message, allowType func(iotexrpc.MessageType) bool) pubsub.ValidationResult {
 		if pid.String() == host.HostIdentity() {
 			return pubsub.ValidationAccept
 		}
@@ -318,6 +318,10 @@ func (p *agent) Start(ctx context.Context) error {
 		}
 		if broadcast.ChainId != p.chainID {
 			log.L().Debug("chain ID mismatch", zap.Uint32("received", broadcast.ChainId), zap.Uint32("expecting", p.chainID))
+			return pubsub.ValidationReject
+		}
+		if allowType != nil && !allowType(broadcast.MsgType) {
+			log.L().Debug("unexpected message type for topic", zap.Int("type", int(broadcast.MsgType)))
 			return pubsub.ValidationReject
 		}
 		pMsg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
@@ -346,6 +350,13 @@ func (p *agent) Start(ctx context.Context) error {
 			timestamp: time.Now(),
 		})
 		return pubsub.ValidationAccept
+	}
+	broadcastValidator := func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+		return validateBroadcast(ctx, pid, msg, nil)
+	}
+	// only consensus messages are published on the consensus topic (see messageTopic)
+	consensusValidator := func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+		return validateBroadcast(ctx, pid, msg, isConsensusTopicMsgType)
 	}
 	broadcastHandler := func(ctx context.Context, pid peer.ID, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
@@ -409,7 +420,7 @@ func (p *agent) Start(ctx context.Context) error {
 	if err := host.AddBroadcastPubSub(
 		ctx,
 		_broadcastTopic+_broadcastSubTopicConsensus+p.topicSuffix,
-		nil, broadcastHandler); err != nil {
+		consensusValidator, broadcastHandler); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
 	// add action topic
@@ -565,6 +576,10 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	}
 	p.qosMetrics.updateSendBroadcast(t, true)
 	return
+}
+
+func isConsensusTopicMsgType(msgType iotexrpc.MessageType) bool {
+	return msgType == iotexrpc.MessageType_CONSENSUS
 }
 
 func (p *agent) messageTopic(msgType iotexrpc.MessageType) string {
