@@ -167,7 +167,6 @@ func NewConsensus(
 			SetDelegatesByEpochFunc(delegatesByEpochFunc).
 			SetProposersByEpochFunc(proposersByEpochFunc).
 			RegisterProtocol(ops.rp)
-		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()
 		if err != nil {
 			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))

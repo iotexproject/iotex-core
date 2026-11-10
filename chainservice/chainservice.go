@@ -62,16 +62,15 @@ func init() {
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
-	lifecycle         lifecycle.Lifecycle
-	actpool           actpool.ActPool
-	blocksync         blocksync.BlockSync
-	consensus         consensus.Consensus
-	chain             blockchain.Blockchain
-	factory           factory.Factory
-	blockdao          blockdao.BlockDAO
-	p2pAgent          p2p.Agent
-	electionCommittee committee.Committee
-	// TODO: explorer dependency deleted at #1085, need to api related params
+	lifecycle                lifecycle.Lifecycle
+	actpool                  actpool.ActPool
+	blocksync                blocksync.BlockSync
+	consensus                consensus.Consensus
+	chain                    blockchain.Blockchain
+	factory                  factory.Factory
+	blockdao                 blockdao.BlockDAO
+	p2pAgent                 p2p.Agent
+	electionCommittee        committee.Committee
 	indexer                  blockindex.Indexer
 	bfIndexer                blockindex.BloomFilterIndexer
 	candidateIndexer         *poll.CandidateIndexer
