@@ -31,7 +31,7 @@ Companion documents:
 | Max op size with `newGuard` | 34,000 bytes |
 | Intrinsic gas | `10,000 + 100*size + k*150,000` |
 | `k` | 1 for BIND and ordinary ops; 2 when an op carries `newGuard` |
-| `MAX_DEADLINE_WINDOW` | 241,920 blocks (≈ 7 days at 2.5 s), counted from `anchorHeight` (`ParamsV1.MaxDeadlineWindow`) |
+| `MAX_DEADLINE_WINDOW` | 241,920 blocks (≈ 7 days at 2.5 s), counted from `anchorHeight` (`ParamsV1.MaxDeadlineWindow`). Execution reads the hash of block `anchorHeight`, so a validator must keep the most recent 241,920 block hashes; a node restored from a state-only snapshot without them stops at the first guarded op |
 | `callHash` | SHA-512 of CALL (64 bytes) |
 | Domain used in vectors | Mainnet: native chain ID 1 (`BlockchainCtx.ChainID`, **not** the EVM network ID 4689) and genesis hash `b3379837…cfe8b`; `qsbDomain = 49d87941a7e817ba842f0f3ec9252840a56d0d090ec50f1d6938fc8a82bed871` |
 
