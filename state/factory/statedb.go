@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -63,7 +64,10 @@ type (
 		ps                       *patchStore
 		erigonDB                 *erigonstore.ErigonDB
 		dependencies             []blockdao.BlockIndexer
-		diffCallback             StateDiffCallback
+		// diffCallback is nil unless a callback is installed. Copying a
+		// block's write queue for it costs every working set, so working
+		// sets do it only when something will receive the copy.
+		diffCallback atomic.Pointer[StateDiffCallback]
 	}
 )
 
@@ -98,7 +102,7 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 // with the block's state diff entries. Used by ioSwarm for state diff streaming.
 func DiffCallbackStateDBOption(cb StateDiffCallback) StateDBOption {
 	return func(sdb *stateDB, cfg *Config) error {
-		sdb.diffCallback = cb
+		sdb.setDiffCallback(cb)
 		return nil
 	}
 }
@@ -107,12 +111,25 @@ func DiffCallbackStateDBOption(cb StateDiffCallback) StateDBOption {
 // Returns false if the factory is not a stateDB (e.g., in-memory test factory).
 func SetDiffCallback(f Factory, cb StateDiffCallback) bool {
 	if sdb, ok := f.(*stateDB); ok {
-		sdb.mutex.Lock()
-		sdb.diffCallback = cb
-		sdb.mutex.Unlock()
+		sdb.setDiffCallback(cb)
 		return true
 	}
 	return false
+}
+
+func (sdb *stateDB) setDiffCallback(cb StateDiffCallback) {
+	if cb == nil {
+		sdb.diffCallback.Store(nil)
+		return
+	}
+	sdb.diffCallback.Store(&cb)
+}
+
+func (sdb *stateDB) loadDiffCallback() StateDiffCallback {
+	if cb := sdb.diffCallback.Load(); cb != nil {
+		return *cb
+	}
+	return nil
 }
 
 // DisableWorkingSetCacheOption disable workingset cache
@@ -267,6 +284,12 @@ func (sdb *stateDB) AddDependency(indexer blockdao.BlockIndexer) {
 	sdb.dependencies = append(sdb.dependencies, indexer)
 }
 
+// isHistoryPruned reports whether state at height is older than the retained
+// history window below tip.
+func isHistoryPruned(height, tip, retention uint64) bool {
+	return tip > retention && height < tip-retention
+}
+
 func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, &readOnlyKV{sdb.dao.atHeight(height)}, nil)
 	if err != nil {
@@ -277,7 +300,7 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 			sdb.mutex.RLock()
 			tip := sdb.currentChainHeight
 			sdb.mutex.RUnlock()
-			if height < tip-sdb.cfg.Chain.HistoryBlockRetention {
+			if isHistoryPruned(height, tip, sdb.cfg.Chain.HistoryBlockRetention) {
 				return nil, errors.Wrapf(
 					ErrNotSupported,
 					"history is pruned, only supported for latest %d blocks, but requested height %d",
@@ -302,7 +325,7 @@ func (sdb *stateDB) newReadOnlyWorkingSet(ctx context.Context, height uint64) (*
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height), sdb.protocolViews.Fork())
+	ws, err := sdb.newWorkingSetWithKVStore(ctx, height, sdb.dao.atHeight(height), sdb.views().Fork())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create new working set")
 	}
@@ -444,12 +467,12 @@ func (sdb *stateDB) WorkingSet(ctx context.Context) (protocol.StateManagerWithCl
 	return sdb.newReadOnlyWorkingSet(ctx, height+1)
 }
 
-func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (protocol.StateManagerWithCloser, error) {
+func (sdb *stateDB) WorkingSetAtTransaction(ctx context.Context, height uint64, acts ...*action.SealedEnvelope) (_ protocol.StateManagerWithCloser, err error) {
 	ws, err := sdb.newReadOnlyWorkingSet(ctx, height-1)
 	if err != nil {
 		return nil, err
 	}
-	// handle panic to ensure workingset is closed
+	// handle panic to ensure workingset is closed, and an error is returned
 	defer func() {
 		if r := recover(); r != nil {
 			ws.Close()
@@ -546,7 +569,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	// Capture callback and entries before releasing lock
-	cb := sdb.diffCallback
+	cb := sdb.loadDiffCallback()
 	diffEntries := ws.stateDiffEntries
 	diffDigest := ws.stateDiffDigest
 	sdb.protocolViews = ws.views
@@ -607,7 +630,13 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 
 // ReadView reads the view
 func (sdb *stateDB) ReadView(name string) (protocol.View, error) {
-	return sdb.protocolViews.Read(name)
+	return sdb.views().Read(name)
+}
+
+func (sdb *stateDB) views() protocol.Views {
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+	return sdb.protocolViews
 }
 
 // StateReaderAt returns a state reader at a specific height

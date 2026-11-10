@@ -43,10 +43,14 @@ func TestSetCodeTx_E2E(t *testing.T) {
 	// Configure blacklist for testing EIP-7702 blacklist enforcement
 	blacklistedAccount := 28
 	cfg.Genesis.InitBalanceMap[identityset.Address(blacklistedAccount).String()] = unit.ConvertIotxToRau(1000000).String()
-	cfg.ActPool.BlackList = []string{identityset.Address(blacklistedAccount).String()}
-	cfg.ActPool.BlackListActiveHeight = cfg.Genesis.YapBlockHeight + 1
+	cfg.Genesis.SetCodeAuthorityBlackList = []string{identityset.Address(blacklistedAccount).String()}
+	cfg.Genesis.SetCodeAuthorityBlackListActiveHeight = cfg.Genesis.YapBlockHeight + 1
+	cfg.Genesis.SetCodeAuthorityBlackListRemoval = nil
+	// the node-local admission list must not affect the execution check
+	cfg.ActPool.BlackList = nil
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
@@ -332,6 +336,7 @@ func TestSetCodeTx_BatchTransfer(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
@@ -497,6 +502,7 @@ func TestSetCodeTx_ERC20ApproveAndTransfer(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
@@ -736,6 +742,7 @@ func TestSetCodeTx_GasSponsorship(t *testing.T) {
 
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)
@@ -959,6 +966,7 @@ func TestEstimateGas(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[sender] = unit.ConvertIotxToRau(1000000).String()
 	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	evmNetworkID := cfg.Chain.EVMNetworkID
 	gasPrice := big.NewInt(unit.Qev)

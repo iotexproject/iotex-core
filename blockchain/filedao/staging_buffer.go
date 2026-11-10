@@ -56,11 +56,20 @@ func (s *stagingBuffer) slot(height uint64) uint64 {
 	return (height - s.start) % s.size
 }
 
-func (s *stagingBuffer) Serialize() ([]byte, error) {
+// serializeWith serializes the buffer as if blk were put at height, without
+// changing the buffer
+func (s *stagingBuffer) serializeWith(height uint64, blk *block.Store) ([]byte, error) {
+	if height < s.start {
+		return nil, ErrNotSupported
+	}
+	pos := s.slot(height)
 	blkStores := []*iotextypes.BlockStore{}
 	// blob sidecar data are stored separately
 	s.lock.RLock()
-	for _, v := range s.buffer {
+	for i, v := range s.buffer {
+		if uint64(i) == pos {
+			v = blk
+		}
 		blkStores = append(blkStores, v.ToProtoWithoutSidecar())
 	}
 	s.lock.RUnlock()
@@ -68,4 +77,10 @@ func (s *stagingBuffer) Serialize() ([]byte, error) {
 		BlockStores: blkStores,
 	}
 	return proto.Marshal(allBlks)
+}
+
+// isLastSlot returns whether height is at the last slot, so putting it fills
+// the buffer
+func (s *stagingBuffer) isLastSlot(height uint64) bool {
+	return s.slot(height) == s.size-1
 }
