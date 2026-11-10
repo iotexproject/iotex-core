@@ -98,43 +98,47 @@ func TestActPool_popLowestPriorityAcrossWorkers_empty(t *testing.T) {
 	r.Nil(ap.popLowestPriorityAcrossWorkers())
 }
 
-// TestHeadLess pins the cross-shard eviction ordering against
-// accountPriorityQueue.Less so a future "simplification" of either function
-// can't silently diverge from the global heap semantics.
-func TestHeadLess(t *testing.T) {
+// TestEvictionRankLess pins the eviction ordering shared by
+// accountPriorityQueue.Less and the cross-shard pick in
+// popLowestPriorityAcrossWorkers.
+func TestEvictionRankLess(t *testing.T) {
 	r := require.New(t)
 	gpLow := big.NewInt(1)
 	gpHigh := big.NewInt(100)
+	rank := func(hasNext, settled bool, gp *big.Int, queued int) evictionRank {
+		return evictionRank{hasNext: hasNext, settled: settled, gp: gp, queued: queued}
+	}
 	cases := []struct {
-		name               string
-		aHasNext, aSettled bool
-		aGP                *big.Int
-		bHasNext, bSettled bool
-		bGP                *big.Int
-		want               bool
-		description        string
+		name        string
+		a, b        evictionRank
+		want        bool
+		description string
 	}{
-		// nil-next handling mirrors Less: jgp==nil → true; igp==nil (b non-nil) → false.
-		{"b has no next", true, true, gpLow, false, false, nil, true, "b has no next: a wins eviction"},
-		{"a has no next", false, false, nil, true, true, gpHigh, false, "a has no next, b non-nil: b is preferred head"},
-		{"both empty (matches Less asymmetry)", false, false, nil, false, false, nil, true, "both empty: first nil-check fires, a wins"},
+		// nil-next handling: b empty → true; a empty (b non-empty) → false.
+		{"b has no next", rank(true, true, gpLow, 0), rank(false, false, nil, 0), true, "b has no next: a wins eviction"},
+		{"a has no next", rank(false, false, nil, 0), rank(true, true, gpHigh, 0), false, "a has no next, b non-nil: b is preferred head"},
+		{"both empty (matches Less asymmetry)", rank(false, false, nil, 0), rank(false, false, nil, 0), true, "both empty: first nil-check fires, a wins"},
+		// queued axis dominates settled and gas
+		{"a queued vs b none", rank(true, true, gpHigh, 1), rank(true, false, gpLow, 0), true, "queued actions are evicted before executable ones"},
+		{"a none vs b queued", rank(true, false, gpLow, 0), rank(true, true, gpHigh, 1), false, "executable-only account survives a queued one"},
+		{"a more queued", rank(true, true, gpHigh, 5), rank(true, false, gpLow, 2), true, "more queued actions are evicted first"},
+		{"a fewer queued", rank(true, false, gpLow, 2), rank(true, true, gpHigh, 5), false, "fewer queued actions survive"},
 		// settled/unsettled axis (with non-nil gp on both sides)
-		{"a unsettled vs b settled", true, false, gpHigh, true, true, gpLow, true, "unsettled is evicted before settled even at higher gas"},
-		{"a settled vs b unsettled", true, true, gpLow, true, false, gpHigh, false, "settled stays even with lower gas vs unsettled"},
+		{"a unsettled vs b settled", rank(true, false, gpHigh, 0), rank(true, true, gpLow, 0), true, "unsettled is evicted before settled even at higher gas"},
+		{"a settled vs b unsettled", rank(true, true, gpLow, 0), rank(true, false, gpHigh, 0), false, "settled stays even with lower gas vs unsettled"},
+		{"same queued, a unsettled", rank(true, false, gpHigh, 3), rank(true, true, gpLow, 3), true, "equal queued falls back to settled axis"},
 		// gas axis (both unsettled)
-		{"both unsettled, a cheaper", true, false, gpLow, true, false, gpHigh, true, "lower gas wins eviction among unsettled"},
-		{"both unsettled, a pricier", true, false, gpHigh, true, false, gpLow, false, "higher gas survives among unsettled"},
+		{"both unsettled, a cheaper", rank(true, false, gpLow, 0), rank(true, false, gpHigh, 0), true, "lower gas wins eviction among unsettled"},
+		{"both unsettled, a pricier", rank(true, false, gpHigh, 0), rank(true, false, gpLow, 0), false, "higher gas survives among unsettled"},
 		// gas axis (both settled)
-		{"both settled, a cheaper", true, true, gpLow, true, true, gpHigh, true, "lower gas wins eviction among settled"},
-		{"both settled, a pricier", true, true, gpHigh, true, true, gpLow, false, "higher gas survives among settled"},
+		{"both settled, a cheaper", rank(true, true, gpLow, 0), rank(true, true, gpHigh, 0), true, "lower gas wins eviction among settled"},
+		{"both settled, a pricier", rank(true, true, gpHigh, 0), rank(true, true, gpLow, 0), false, "higher gas survives among settled"},
 		// equal gas: Cmp == 0 → !(<0) → false (not less)
-		{"equal gas same settled state", true, true, gpLow, true, true, big.NewInt(1), false, "ties resolve to false (matches Less strict-less)"},
+		{"equal gas same settled state", rank(true, true, gpLow, 0), rank(true, true, big.NewInt(1), 0), false, "ties resolve to false (strict less)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			r.Equal(tc.want,
-				headLess(tc.aHasNext, tc.aSettled, tc.aGP, tc.bHasNext, tc.bSettled, tc.bGP),
-				tc.description)
+			r.Equal(tc.want, tc.a.less(tc.b), tc.description)
 		})
 	}
 }

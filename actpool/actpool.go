@@ -8,7 +8,6 @@ package actpool
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -589,44 +588,22 @@ func (ap *actPool) popLowestPriorityAcrossWorkers() *action.SealedEnvelope {
 		}
 	}()
 	var (
-		bestIdx     = -1
-		bestHasNext bool
-		bestSettled bool
-		bestGP      *big.Int
+		bestIdx  = -1
+		bestRank evictionRank
 	)
 	for i, w := range ap.worker {
 		if len(w.accountActs.accounts) == 0 {
 			continue
 		}
-		settled, gp := w.accountActs.priorityQueue[0].actQueue.NextAction()
-		hasNext := gp != nil
-		if bestIdx < 0 || headLess(hasNext, settled, gp, bestHasNext, bestSettled, bestGP) {
-			bestIdx, bestHasNext, bestSettled, bestGP = i, hasNext, settled, gp
+		rank := newEvictionRank(w.accountActs.priorityQueue[0].actQueue)
+		if bestIdx < 0 || rank.less(bestRank) {
+			bestIdx, bestRank = i, rank
 		}
 	}
 	if bestIdx < 0 {
 		return nil
 	}
 	return ap.worker[bestIdx].accountActs.PopPeek()
-}
-
-// headLess mirrors accountPriorityQueue.Less so that the eviction victim
-// picked across all shards matches what a single unified per-account heap
-// would have evicted.
-func headLess(aHasNext, aSettled bool, aGP *big.Int, bHasNext, bSettled bool, bGP *big.Int) bool {
-	if !bHasNext {
-		return true
-	}
-	if !aHasNext {
-		return false
-	}
-	if !aSettled && bSettled {
-		return true
-	}
-	if !bSettled && aSettled {
-		return false
-	}
-	return aGP.Cmp(bGP) < 0
 }
 
 func (ap *actPool) AddSubscriber(sub Subscriber) {
