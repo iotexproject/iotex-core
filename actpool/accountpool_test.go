@@ -105,10 +105,10 @@ func TestAccountPool_PopPeek(t *testing.T) {
 		r.NoError(ap.PutAction(_addr3, nil, 1, _balance, _expireTime, tsf6))
 		r.NoError(ap.PutAction(_addr4, nil, 1, _balance, _expireTime, tsf7))
 		r.NoError(ap.PutAction(_addr4, nil, 1, _balance, _expireTime, tsf8))
-		r.Equal(tsf4, ap.PopPeek())
-		r.Equal(tsf3, ap.PopPeek())
-		r.Equal(tsf8, ap.PopPeek())
-		r.Equal(tsf7, ap.PopPeek())
+		// accounts holding the most non-executable actions go first: addr2 and
+		// addr4 hold two each, addr3 holds one, addr1 none
+		r.ElementsMatch([]*action.SealedEnvelope{tsf4, tsf8}, []*action.SealedEnvelope{ap.PopPeek(), ap.PopPeek()})
+		r.ElementsMatch([]*action.SealedEnvelope{tsf3, tsf7}, []*action.SealedEnvelope{ap.PopPeek(), ap.PopPeek()})
 		r.Equal(tsf6, ap.PopPeek())
 		r.Equal(tsf5, ap.PopPeek())
 		r.Equal(tsf2, ap.PopPeek())
