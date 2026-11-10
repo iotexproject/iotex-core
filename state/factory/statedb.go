@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -63,7 +64,10 @@ type (
 		ps                       *patchStore
 		erigonDB                 *erigonstore.ErigonDB
 		dependencies             []blockdao.BlockIndexer
-		diffCallback             StateDiffCallback
+		// diffCallback is nil unless a callback is installed. Copying a
+		// block's write queue for it costs every working set, so working
+		// sets do it only when something will receive the copy.
+		diffCallback atomic.Pointer[StateDiffCallback]
 	}
 )
 
@@ -98,7 +102,7 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 // with the block's state diff entries. Used by ioSwarm for state diff streaming.
 func DiffCallbackStateDBOption(cb StateDiffCallback) StateDBOption {
 	return func(sdb *stateDB, cfg *Config) error {
-		sdb.diffCallback = cb
+		sdb.setDiffCallback(cb)
 		return nil
 	}
 }
@@ -107,12 +111,25 @@ func DiffCallbackStateDBOption(cb StateDiffCallback) StateDBOption {
 // Returns false if the factory is not a stateDB (e.g., in-memory test factory).
 func SetDiffCallback(f Factory, cb StateDiffCallback) bool {
 	if sdb, ok := f.(*stateDB); ok {
-		sdb.mutex.Lock()
-		sdb.diffCallback = cb
-		sdb.mutex.Unlock()
+		sdb.setDiffCallback(cb)
 		return true
 	}
 	return false
+}
+
+func (sdb *stateDB) setDiffCallback(cb StateDiffCallback) {
+	if cb == nil {
+		sdb.diffCallback.Store(nil)
+		return
+	}
+	sdb.diffCallback.Store(&cb)
+}
+
+func (sdb *stateDB) loadDiffCallback() StateDiffCallback {
+	if cb := sdb.diffCallback.Load(); cb != nil {
+		return *cb
+	}
+	return nil
 }
 
 // DisableWorkingSetCacheOption disable workingset cache
@@ -552,7 +569,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	// Capture callback and entries before releasing lock
-	cb := sdb.diffCallback
+	cb := sdb.loadDiffCallback()
 	diffEntries := ws.stateDiffEntries
 	diffDigest := ws.stateDiffDigest
 	sdb.protocolViews = ws.views
