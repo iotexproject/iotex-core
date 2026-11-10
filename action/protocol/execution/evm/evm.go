@@ -118,11 +118,31 @@ type (
 	}
 )
 
+// txTo returns the destination of the tx, and an error if the destination of
+// an execution is a malformed address (rather than treating it as a contract
+// creation)
+func txTo(tx action.TxData) (*common.Address, error) {
+	if elp, ok := tx.(interface{ Action() action.Action }); ok {
+		if exec, ok := elp.Action().(*action.Execution); ok {
+			to, err := exec.EthTo()
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid contract address %s", exec.Contract())
+			}
+			return to, nil
+		}
+	}
+	return tx.To(), nil
+}
+
 // newParams creates a new context for use in the EVM.
 func newParams(
 	ctx context.Context,
 	execution action.TxData,
 ) (*Params, error) {
+	contract, err := txTo(execution)
+	if err != nil {
+		return nil, err
+	}
 	var (
 		actionCtx    = protocol.MustGetActionCtx(ctx)
 		blkCtx       = protocol.MustGetBlockCtx(ctx)
@@ -218,7 +238,7 @@ func newParams(
 		vmTxCtx,
 		execution.Nonce(),
 		execution.Value(),
-		execution.To(),
+		contract,
 		gasLimit,
 		execution.Data(),
 		execution.AccessList(),

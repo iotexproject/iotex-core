@@ -1,20 +1,13 @@
 #!/usr/bin/env bash
+# Run the short test suite for every package, letting go test build and run
+# packages in parallel. -gcflags=all=-l disables inlining, which the
+# gomonkey-based tests need in order to patch functions.
+#
+# Packages whose tests bind fixed ports (e.g. the probe server on 7788) collide
+# when run at the same time, so they run afterwards, one package at a time.
 
 set -e
-cat /dev/null > coverage.txt
-
-for dir in $(go list -f '{{.ImportPath}}={{join .TestGoFiles ","}}' ./...);do
-    array=(${dir//=/ })
-    if [ -n "${array[1]}" ]; then
-        go test -gcflags="all=-N -l" -short -v -coverprofile=coverage.out -covermode=count "${array[0]}"
-        #courtney -l=coverage.out -o=profile.out
-        #if [ -f profile.out ]; then
-        #    cat profile.out >> coverage.txt
-        #    rm profile.out coverage.out
-        #fi
-        if [ -f coverage.out ]; then
-            cat coverage.out >> coverage.txt
-            rm coverage.out
-        fi
-    fi    
-done
+serial='/e2etest$|/pkg/probe$|/server/itx$'
+pkgs=$(go list ./...)
+go test -short -gcflags=all=-l $(grep -Ev "$serial" <<< "$pkgs")
+go test -short -gcflags=all=-l -p 1 $(grep -E "$serial" <<< "$pkgs")
