@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
@@ -144,4 +145,30 @@ func TestTxContainerOversizedSignatureValues(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestTxContainerCostIncludesBlobFee(t *testing.T) {
+	r := require.New(t)
+	to := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	tx := types.NewTx(&types.BlobTx{
+		ChainID:    uint256.NewInt(4689),
+		Nonce:      1,
+		GasTipCap:  uint256.NewInt(1),
+		GasFeeCap:  uint256.NewInt(10),
+		Gas:        21000,
+		To:         to,
+		Value:      uint256.NewInt(5),
+		BlobFeeCap: uint256.NewInt(3),
+		BlobHashes: []common.Hash{{1}, {2}},
+	})
+	cost, err := (&txContainer{tx: tx}).Cost()
+	r.NoError(err)
+	want := new(big.Int).SetUint64(21000*10 + 5 + 3*2*params.BlobTxBlobGasPerBlob)
+	r.Equal(want, cost)
+
+	// no blob fee for other tx types
+	tx = types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(4689), Nonce: 1, GasTipCap: big.NewInt(1), GasFeeCap: big.NewInt(10), Gas: 21000, To: &to, Value: big.NewInt(5)})
+	cost, err = (&txContainer{tx: tx}).Cost()
+	r.NoError(err)
+	r.Equal(big.NewInt(21000*10+5), cost)
 }

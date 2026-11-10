@@ -251,8 +251,10 @@ func (worker *queueWorker) removeEmptyAccounts() {
 }
 
 func (worker *queueWorker) Reset(ctx context.Context) {
-	worker.mu.RLock()
-	defer worker.mu.RUnlock()
+	// Range reorders the account priority queue and the callback updates
+	// account queues, so this needs the write lock.
+	worker.mu.Lock()
+	defer worker.mu.Unlock()
 
 	worker.accountActs.Range(func(from string, queue ActQueue) {
 		addr, _ := address.FromString(from)
@@ -284,8 +286,10 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 func (worker *queueWorker) PendingActions(ctx context.Context) []*pendingActions {
 	actionArr := make([]*pendingActions, 0)
 
-	worker.mu.RLock()
-	defer worker.mu.RUnlock()
+	// Range reorders the account priority queue and the callback updates
+	// account queues, so this needs the write lock.
+	worker.mu.Lock()
+	defer worker.mu.Unlock()
 	worker.accountActs.Range(func(from string, queue ActQueue) {
 		if queue.Empty() {
 			return
