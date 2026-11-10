@@ -9,6 +9,7 @@ package signer
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/cloudflare/circl/sign/slhdsa"
@@ -70,7 +71,16 @@ func NewKeyFromSeeds(alg pqcrypto.AlgID, seeds []byte) (*PrivateKey, error) {
 // PublicKey returns the matching public key.
 func (k *PrivateKey) PublicKey() *pqcrypto.PublicKey { return k.pub }
 
-// Sign returns a deterministic pure-mode signature over msg under context.
+// Sign returns a hedged pure-mode signature over msg under context: FIPS 205
+// signing with fresh randomness, as IIP-65 §12.3 asks of wallets. A fault
+// during signing then does not recur across signatures of the same message.
+// Verify every signature before releasing it.
 func (k *PrivateKey) Sign(context, msg []byte) ([]byte, error) {
+	return slhdsa.SignRandomized(&k.key, rand.Reader, slhdsa.NewMessage(msg), context)
+}
+
+// SignDeterministic returns the deterministic pure-mode signature over msg
+// under context. It is for test vectors only.
+func (k *PrivateKey) SignDeterministic(context, msg []byte) ([]byte, error) {
 	return slhdsa.SignDeterministic(&k.key, slhdsa.NewMessage(msg), context)
 }
