@@ -79,6 +79,8 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 			Return(&iotexapi.GetChainMetaResponse{}, nil).AnyTimes()
 		api.EXPECT().SendAction(gomock.Any(), gomock.Any()).
 			Return(&iotexapi.SendActionResponse{}, nil).AnyTimes()
+		api.EXPECT().EstimateActionGasConsumption(gomock.Any(), gomock.Any()).
+			Return(&iotexapi.EstimateActionGasConsumptionResponse{Gas: 50000}, nil).AnyTimes()
 
 		cli.EXPECT().Config().Return(config.Config{
 			Explorer: "iotexscan",

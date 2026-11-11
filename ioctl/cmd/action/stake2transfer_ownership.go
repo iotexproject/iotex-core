@@ -65,9 +65,6 @@ func stake2TransferOwnership(args []string) error {
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		gasLimit = action.CandidateTransferOwnershipBaseIntrinsicGas
-	}
 
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
