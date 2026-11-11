@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -49,6 +50,38 @@ type (
 		TxHash      common.Hash          `json:"txHash"`
 	}
 )
+
+// MarshalJSON keeps the blob sidecar in the shape the API has always served.
+// go-ethereum v1.16 added a Version field to types.BlobTxSidecar, which has no
+// JSON tags, so marshaling it directly would add "Version" to the response.
+// IoTeX only accepts version 0 sidecars, so the field is left out.
+func (r BlobSidecarResult) MarshalJSON() ([]byte, error) {
+	type blobSidecarV0 struct {
+		Blobs       []kzg4844.Blob
+		Commitments []kzg4844.Commitment
+		Proofs      []kzg4844.Proof
+	}
+	out := struct {
+		BlobSidecar *blobSidecarV0 `json:"blobSidecar"`
+		BlockNumber uint64         `json:"blockHeight"`
+		BlockHash   common.Hash    `json:"blockHash"`
+		TxIndex     uint64         `json:"txIndex"`
+		TxHash      common.Hash    `json:"txHash"`
+	}{
+		BlockNumber: r.BlockNumber,
+		BlockHash:   r.BlockHash,
+		TxIndex:     r.TxIndex,
+		TxHash:      r.TxHash,
+	}
+	if sc := r.BlobSidecar; sc != nil {
+		out.BlobSidecar = &blobSidecarV0{
+			Blobs:       sc.Blobs,
+			Commitments: sc.Commitments,
+			Proofs:      sc.Proofs,
+		}
+	}
+	return json.Marshal(out)
+}
 
 // responseWriter for server
 type responseWriter struct {
