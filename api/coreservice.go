@@ -1584,7 +1584,7 @@ func (core *coreService) actionToApiProto(selp *action.SealedEnvelope) (*iotexap
 		if err != nil {
 			return nil, err
 		}
-		if err := container.Unfold(selp, ctx, core.checkContract); err != nil {
+		if selp, err = container.Unfold(selp, ctx, core.checkContract); err != nil {
 			return nil, err
 		}
 	}
