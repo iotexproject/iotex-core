@@ -165,11 +165,12 @@ func (views *views) Revert(id int) error {
 			return err
 		}
 	}
-	views.snapshotID = id
-	// clean up snapshots that are not needed anymore
+	// clean up snapshots that are not needed anymore, before snapshotID is
+	// lowered to id and the loop bound collapses
 	for i := id + 1; i <= views.snapshotID; i++ {
 		delete(views.snapshots, i)
 	}
+	views.snapshotID = id
 	return nil
 }
 
