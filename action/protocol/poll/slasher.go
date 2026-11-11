@@ -459,8 +459,12 @@ func (sh *Slasher) CalculateProbationList(
 		probationMap = make(map[string]uint32)
 	}
 	skipList := upd.ReadOldestUPD()
+	rejectMismatch := protocol.MustGetFeatureCtx(ctx).RejectProbationListMismatch
 	for _, addr := range skipList {
 		if _, ok := probationMap[addr]; !ok {
+			if rejectMismatch {
+				return nil, errors.Errorf("skipping list element %s doesn't exist among one of existing map at epoch number %d", addr, epochNum)
+			}
 			log.L().Fatal("skipping list element doesn't exist among one of existing map")
 			continue
 		}

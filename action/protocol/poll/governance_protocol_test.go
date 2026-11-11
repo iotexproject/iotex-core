@@ -13,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -684,4 +686,71 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	for i, d := range delegates4 {
 		require.True(d.Equal(delegates5[i]))
 	}
+}
+
+// rollProbationListWithMismatch drives the TestCreatePreStates fixture to the
+// last block of epoch 3, the first one that rolls the probation list instead
+// of rebuilding it, with the current probation list emptied so that the
+// oldest unproductive-delegate record names addresses it does not contain.
+func rollProbationListWithMismatch(t *testing.T, nextFork bool) error {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	p, ctx, sm, _, err := initConstruct(ctrl)
+	require.NoError(err)
+	if nextFork {
+		g := genesis.MustExtractGenesisContext(ctx)
+		g.ToBeEnabledBlockHeight = 0
+		ctx = genesis.WithGenesisContext(ctx, g)
+	}
+	psc, ok := p.(protocol.PreStatesCreator)
+	require.True(ok)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	atHeight := func(height uint64) context.Context {
+		bcCtx.Tip.Height = height - 1
+		c := protocol.WithBlockchainCtx(ctx, bcCtx)
+		c = protocol.WithBlockCtx(c, protocol.BlockCtx{
+			BlockHeight: height,
+			Producer:    identityset.Address(1),
+		})
+		return protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(c))
+	}
+
+	for epochNum := uint64(1); epochNum <= 3; epochNum++ {
+		epochStartHeight := rp.GetEpochHeight(epochNum)
+		c := atHeight(epochStartHeight)
+		require.Equal(nextFork, protocol.MustGetFeatureCtx(c).RejectProbationListMismatch)
+		require.NoError(psc.CreatePreStates(c, sm))
+		candidates, err := p.Candidates(c, sm)
+		require.NoError(err)
+		_, err = setCandidates(c, sm, nil, candidates, rp.GetEpochHeight(epochNum+1))
+		require.NoError(err)
+		if epochNum < 3 {
+			require.NoError(psc.CreatePreStates(atHeight(rp.GetEpochLastBlockHeight(epochNum)), sm))
+		}
+	}
+	key := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
+	_, err = sm.PutState(
+		vote.NewProbationList(90),
+		protocol.KeyOption(key[:]),
+		protocol.NamespaceOption(protocol.SystemNamespace),
+	)
+	require.NoError(err)
+	return psc.CreatePreStates(atHeight(rp.GetEpochLastBlockHeight(3)), sm)
+}
+
+func TestCalculateProbationListMismatch_NextForkReturnsError(t *testing.T) {
+	err := rollProbationListWithMismatch(t, true)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "doesn't exist among one of existing map")
+}
+
+func TestCalculateProbationListMismatch_BeforeNextForkIsFatal(t *testing.T) {
+	// log.Fatal exits the process; swap in a logger whose fatal hook panics so
+	// the replay behaviour can be observed without killing the test binary.
+	restore := zap.ReplaceGlobals(zap.NewNop().WithOptions(zap.WithFatalHook(zapcore.WriteThenPanic)))
+	defer restore()
+	require.PanicsWithValue(t, "skipping list element doesn't exist among one of existing map", func() {
+		_ = rollProbationListWithMismatch(t, false)
+	})
 }
