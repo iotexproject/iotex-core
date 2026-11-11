@@ -8,12 +8,14 @@ package action
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"math"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -171,4 +173,60 @@ func TestTxContainerCostIncludesBlobFee(t *testing.T) {
 	cost, err = (&txContainer{tx: tx}).Cost()
 	r.NoError(err)
 	r.Equal(big.NewInt(21000*10+5), cost)
+}
+
+func TestBlobSidecarVersionRejected(t *testing.T) {
+	r := require.New(t)
+	const evmNetworkID = 4689
+	var (
+		sk     = identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey)
+		signer = types.LatestSignerForChainID(big.NewInt(evmNetworkID))
+		blob   = kzg4844.Blob{1, 2, 3, 4}
+	)
+	commit, err := kzg4844.BlobToCommitment(&blob)
+	r.NoError(err)
+	proof, err := kzg4844.ComputeBlobProof(&blob, commit)
+	r.NoError(err)
+	newRaw := func(version byte) []byte {
+		// one blob proof per blob, which iotex's sidecar check accepts
+		// regardless of the version byte
+		sidecar := types.NewBlobTxSidecar(version, []kzg4844.Blob{blob}, []kzg4844.Commitment{commit}, []kzg4844.Proof{proof})
+		tx := types.MustSignNewTx(sk, signer, &types.BlobTx{
+			ChainID:    uint256.NewInt(evmNetworkID),
+			Nonce:      1,
+			GasTipCap:  uint256.NewInt(1),
+			GasFeeCap:  uint256.NewInt(10),
+			Gas:        21000,
+			To:         common.HexToAddress("0x1234567890123456789012345678901234567890"),
+			Value:      uint256.NewInt(0),
+			BlobFeeCap: uint256.NewInt(1),
+			BlobHashes: sidecar.BlobHashes(),
+			Sidecar:    sidecar,
+		})
+		raw, err := tx.MarshalBinary()
+		r.NoError(err)
+		return raw
+	}
+	loadContainer := func(raw []byte) error {
+		return (&txContainer{}).LoadProto(&iotextypes.ActionCore{
+			ChainID: 1,
+			Action:  &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}},
+		})
+	}
+
+	// version 0 decodes and passes the sidecar check
+	raw := newRaw(types.BlobSidecarVersion0)
+	tx, err := DecodeEtherTx(hex.EncodeToString(raw))
+	r.NoError(err)
+	r.NoError(verifySidecar(tx.BlobTxSidecar(), tx.BlobHashes()))
+	r.NoError(loadContainer(raw))
+
+	// version 1 is rejected right after decoding, in both paths
+	raw = newRaw(types.BlobSidecarVersion1)
+	_, err = DecodeEtherTx(hex.EncodeToString(raw))
+	r.ErrorIs(err, ErrInvalidAct)
+	r.ErrorContains(err, "unsupported blob sidecar version 1")
+	err = loadContainer(raw)
+	r.ErrorIs(err, ErrInvalidAct)
+	r.ErrorContains(err, "unsupported blob sidecar version 1")
 }

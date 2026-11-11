@@ -48,12 +48,16 @@ var (
 	// ErrFloorDataGas is returned if the transaction is specified to use less gas
 	// than required for the data floor cost.
 	ErrFloorDataGas = errors.New("insufficient gas for floor data gas cost")
+	// ErrGasLimitTooHigh is returned if the action declares a gas limit above
+	// the EIP-7825 cap, MaxTxGas. The text matches go-ethereum's error for the
+	// same rule, which wallets and tools already recognize.
+	ErrGasLimitTooHigh = errors.New("transaction gas limit too high")
 )
 
 // LoadErrorDescription loads corresponding description related to the error
 func LoadErrorDescription(err error) string {
 	switch errors.Cause(err) {
-	case ErrOversizedData, ErrTxPoolOverflow, ErrInvalidSender, ErrNonceTooHigh, ErrInsufficientFunds, ErrIntrinsicGas, ErrChainID, ErrNotFound, ErrVotee, ErrAddress, ErrExistedInPool, ErrReplaceUnderpriced, ErrNonceTooLow, ErrUnderpriced, ErrNegativeValue:
+	case ErrOversizedData, ErrTxPoolOverflow, ErrInvalidSender, ErrNonceTooHigh, ErrInsufficientFunds, ErrIntrinsicGas, ErrChainID, ErrNotFound, ErrVotee, ErrAddress, ErrExistedInPool, ErrReplaceUnderpriced, ErrNonceTooLow, ErrUnderpriced, ErrNegativeValue, ErrGasLimitTooHigh:
 		return err.Error()
 	default:
 		return "Unknown"

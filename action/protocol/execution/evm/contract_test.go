@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -70,7 +71,7 @@ func TestCreateContract(t *testing.T) {
 	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
-	stateDB.SetCode(evmContract, _bytecode)
+	stateDB.SetCode(evmContract, _bytecode, tracing.CodeChangeUnspecified)
 	// contract exist
 	codeHash := stateDB.GetCodeHash(evmContract)
 	var emptyEVMHash common.Hash
