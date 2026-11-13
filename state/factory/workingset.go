@@ -613,37 +613,166 @@ func (ws *workingSet) validateNonceSkipSystemAction(ctx context.Context, blk *bl
 }
 
 func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap map[string][]uint64) error {
-	var (
-		pendingNonce uint64
-		useZeroNonce = protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount
-	)
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
-		confirmedState, err := accountutil.AccountState(ctx, ws, addr)
+		pendingNonce, err := ws.continuityBaseNonce(ctx, addr)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
+			return err
 		}
-		slices.Sort(receivedNonces)
-		if useZeroNonce {
-			pendingNonce = confirmedState.PendingNonceConsideringFreshAccount()
-		} else {
-			pendingNonce = confirmedState.PendingNonce()
-		}
-		for i, nonce := range receivedNonces {
-			if nonce != pendingNonce+uint64(i) {
-				return errors.Wrapf(
-					action.ErrNonceTooHigh,
-					"the %d-th nonce %d of address %s (init pending nonce %d) is not continuously increasing",
-					i,
-					nonce,
-					srcAddr,
-					pendingNonce,
-				)
-			}
+		if err := checkNonceSequence(srcAddr, pendingNonce, receivedNonces); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// continuityBaseNonce returns the nonce that checkNonceContinuity expects the
+// first action of addr in a block to carry, read from the current state
+func (ws *workingSet) continuityBaseNonce(ctx context.Context, addr address.Address) (uint64, error) {
+	confirmedState, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to get the confirmed nonce of address %s", addr)
+	}
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		return confirmedState.PendingNonceConsideringFreshAccount(), nil
+	}
+	return confirmedState.PendingNonce(), nil
+}
+
+// checkNonceSequence sorts nonces in place and checks that they run
+// continuously from pendingNonce
+func checkNonceSequence(srcAddr string, pendingNonce uint64, nonces []uint64) error {
+	slices.Sort(nonces)
+	for i, nonce := range nonces {
+		if nonce != pendingNonce+uint64(i) {
+			return errors.Wrapf(
+				action.ErrNonceTooHigh,
+				"the %d-th nonce %d of address %s (init pending nonce %d) is not continuously increasing",
+				i,
+				nonce,
+				srcAddr,
+				pendingNonce,
+			)
+		}
+	}
+	return nil
+}
+
+// mintNonceGate keeps the nonces in a draft block passing
+// checkNonceContinuity, which checks each sender's nonces in the block against
+// the state at the start of the block. The live working set is not a valid
+// baseline: an action may move the nonce of an account other than its sender
+// (an EIP-7702 authorization does, and so does a CREATE run by an account's
+// delegated code), so a nonce that passes the live check at mint can still
+// fail continuity at validation.
+type mintNonceGate struct {
+	base     map[string]uint64
+	included map[string][]uint64
+}
+
+// newMintNonceGate reads the base nonce of every sender in pending; it must
+// run before any action does
+func (ws *workingSet) newMintNonceGate(ctx context.Context, pending map[string][]*action.SealedEnvelope) (*mintNonceGate, error) {
+	g := &mintNonceGate{
+		base:     make(map[string]uint64),
+		included: make(map[string][]uint64),
+	}
+	for _, acts := range pending {
+		if len(acts) == 0 {
+			continue
+		}
+		if err := g.addBase(ctx, ws, acts[0]); err != nil {
+			return nil, err
+		}
+	}
+	return g, nil
+}
+
+// addBundles reads the base nonce of every sender in bundles; it must run
+// before any action does
+func (g *mintNonceGate) addBundles(ctx context.Context, ws *workingSet, bundles []*action.Bundle) error {
+	for _, bundle := range bundles {
+		if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
+			return g.addBase(ctx, ws, selp)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (g *mintNonceGate) addBase(ctx context.Context, ws *workingSet, selp *action.SealedEnvelope) error {
+	sender := selp.SenderAddress()
+	if sender == nil {
+		// admit rejects such a bundle, and validateAndRun such an action
+		return nil
+	}
+	if _, ok := g.base[sender.String()]; ok {
+		return nil
+	}
+	n, err := ws.continuityBaseNonce(ctx, sender)
+	if err != nil {
+		return err
+	}
+	g.base[sender.String()] = n
+	return nil
+}
+
+// admit checks bundle and returns its nonces by sender, to be passed to
+// include if the bundle makes it into the block
+func (g *mintNonceGate) admit(bundle *action.Bundle) (map[string][]uint64, error) {
+	nonces := make(map[string][]uint64)
+	if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
+		sender := selp.SenderAddress()
+		if sender == nil {
+			return errors.New("failed to get address")
+		}
+		nonces[sender.String()] = append(nonces[sender.String()], selp.Nonce())
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	for sender, own := range nonces {
+		base, ok := g.base[sender]
+		if !ok {
+			return nil, errors.Errorf("no base nonce for address %s", sender)
+		}
+		seq := append(slices.Clone(g.included[sender]), own...)
+		if err := checkNonceSequence(sender, base, seq); err != nil {
+			return nil, err
+		}
+	}
+	return nonces, nil
+}
+
+func (g *mintNonceGate) include(nonces map[string][]uint64) {
+	for sender, own := range nonces {
+		g.included[sender] = append(g.included[sender], own...)
+	}
+}
+
+// pastNext reports whether selp's nonce is beyond the next nonce its sender
+// can use in the block. Such an action cannot pass checkNonceContinuity, and
+// neither can its sender's later actions, which have higher nonces. A nonce
+// below the next one is left to the live check, which rejects it as too low.
+func (g *mintNonceGate) pastNext(selp *action.SealedEnvelope) bool {
+	sender := selp.SenderAddress()
+	if sender == nil {
+		return false
+	}
+	base, ok := g.base[sender.String()]
+	if !ok {
+		return true
+	}
+	return selp.Nonce() > base+uint64(len(g.included[sender.String()]))
+}
+
+// includeAction records the nonce of selp, which made it into the block
+func (g *mintNonceGate) includeAction(selp *action.SealedEnvelope) {
+	if sender := selp.SenderAddress(); sender != nil {
+		g.included[sender.String()] = append(g.included[sender.String()], selp.Nonce())
+	}
 }
 
 func (ws *workingSet) Process(ctx context.Context, actions []*action.SealedEnvelope) error {
@@ -924,11 +1053,19 @@ func (ws *workingSet) pickAndRunActions(
 		if dl, ok := ctx.Deadline(); ok {
 			deadline = &dl
 		}
+		pending := ap.PendingActionMap()
+		nonceGate, err := ws.newMintNonceGate(ctx, pending)
+		if err != nil {
+			return nil, err
+		}
 		bp := ap.BundlePool()
 		if bp != nil {
 			bids, _, bundles, err := bp.BundlesAtHeight(ws.height)
 			switch errors.Cause(err) {
 			case nil:
+				if err := nonceGate.addBundles(ctx, ws, bundles); err != nil {
+					return nil, err
+				}
 				for i, bundle := range bundles {
 					bh := bundle.Hash()
 					log.L().Info("processing bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.String("hash", hex.EncodeToString(bh[:])), zap.Int("size", bundle.Len()), zap.Uint64("gas", bundle.Gas()))
@@ -945,6 +1082,15 @@ func (ws *workingSet) pickAndRunActions(
 					}
 					if bundle.Gas() > bGasLimit {
 						log.L().Info("Skip bundle exceeds gas limit", zap.String("hash", hex.EncodeToString(bh[:])), zap.Uint64("height", ws.height), zap.Uint64("gas", bundle.Gas()), zap.Uint64("blkGasLimit", bGasLimit))
+						continue
+					}
+					// Block validation runs checkNonceContinuity over the whole
+					// block, while the per-action mint check only rejects a nonce
+					// that is too low. Check the bundle's nonces the way block
+					// validation will before any of its actions runs.
+					bundleNonces, err := nonceGate.admit(bundle)
+					if err != nil {
+						log.L().Info("Skip bundle with non-continuous nonces", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
 						continue
 					}
 					bBlobCnt := blobCnt
@@ -979,7 +1125,12 @@ func (ws *workingSet) pickAndRunActions(
 						return nil
 					}); err != nil {
 						log.L().Warn("failed to process bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
-						if err := ws.Revert(si); err != nil {
+						// revertDuringMint, not Revert: a bundle action that ran
+						// through is finalized before the next one runs, and on the
+						// erigon store FinalizeTx drops the revert journal, so
+						// reverting the pre-bundle snapshot can panic;
+						// revertDuringMint returns that as an error.
+						if err := ws.revertDuringMint(si); err != nil {
 							return nil, errors.Wrapf(err, "failed to revert snapshot %d for bundle %s at height %d", si, bids[i], ws.height)
 						}
 						// drop the bundle's block context too, or what runs
@@ -988,6 +1139,7 @@ func (ws *workingSet) pickAndRunActions(
 						ws.mintOwnerOrOpChanged, ws.mintDeferred = ownerOrOpChanged, deferred
 						continue
 					}
+					nonceGate.include(bundleNonces)
 					for _, receipt := range bReceipts {
 						blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
@@ -1009,7 +1161,7 @@ func (ws *workingSet) pickAndRunActions(
 				return nil, errors.Wrapf(err, "failed to get bundles at height %d", ws.height)
 			}
 		}
-		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
+		actionIterator := actioniterator.NewActionIterator(pending)
 		for {
 			if deadline != nil && time.Now().After(*deadline) {
 				duration := time.Since(blkCtx.BlockTimeStamp)
@@ -1021,6 +1173,12 @@ func (ws *workingSet) pickAndRunActions(
 			if !ok {
 				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
+			}
+			// the live check below only rejects a nonce that is too low
+			if nonceGate.pastNext(nextAction) {
+				countMintSkip("nonce_gap", nextAction)
+				actionIterator.SkipAccount(nextAction.SenderAddress())
+				continue
 			}
 			popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit), true)
 			if popAccount {
@@ -1045,6 +1203,7 @@ func (ws *workingSet) pickAndRunActions(
 				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+			nonceGate.includeAction(nextAction)
 			receipts = append(receipts, receipt)
 			executedActions = append(executedActions, nextAction)
 			blobCnt += uint64(len(nextAction.BlobHashes()))
