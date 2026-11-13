@@ -169,15 +169,20 @@ func TestProcessSyncRequestClampsRange(t *testing.T) {
 	r.Len(served, 20)
 }
 
-// fakeChain commits only blocks it considers authentic, in height order.
+// fakeChain commits only blocks it considers authentic, in height order. Any
+// other block fails with reject, or with a peer-attributable cause if unset.
 type fakeChain struct {
-	tip   uint64
-	valid map[hash.Hash256]bool
+	tip    uint64
+	valid  map[hash.Hash256]bool
+	reject error
 }
 
 func (c *fakeChain) commit(blk *block.Block) error {
 	if !c.valid[blk.HashBlock()] || blk.Height() != c.tip+1 {
-		return errors.New("invalid block")
+		if c.reject != nil {
+			return c.reject
+		}
+		return errors.Wrap(block.ErrTxRootMismatch, "invalid block")
 	}
 	c.tip++
 	return nil
