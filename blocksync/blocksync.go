@@ -164,32 +164,80 @@ func NewBlockSyncer(
 }
 
 // commitBlocks commits the first candidate that is accepted. It reports whether
-// one was committed, and whether any candidate was rejected as invalid (its
-// peer is blocked).
+// one was committed, and whether any candidate failed to commit for a reason
+// other than the node being paused or its remote block store lagging.
+//
+// A failed candidate's peer is blocked only when peerAttributable says the
+// failure proves the peer served a bad block. Every other failure is logged and
+// the peer is left alone: Pop returns every candidate buffered at the height,
+// so one local fault (full disk, I/O error, corrupted index, a node on older
+// rules) would otherwise block every peer that served the height.
 func (bs *blockSyncer) commitBlocks(blks []*peerBlock) (committed bool, rejected bool) {
 	for _, blk := range blks {
 		if blk == nil {
 			continue
 		}
 		err := bs.commitBlockHandler(blk.block)
-		switch errors.Cause(err) {
-		case nil:
+		switch cause := errors.Cause(err); {
+		case cause == nil:
 			if blk.block.Height() > bs.lastTip {
 				bs.lastTip = blk.block.Height()
 				bs.lastTipTime = blk.block.Timestamp()
 			}
 			return true, rejected
-		case blockdao.ErrRemoteHeightTooLow:
+		case cause == blockdao.ErrRemoteHeightTooLow:
 			log.L().Info("remote height too low", zap.Uint64("height", blk.block.Height()))
-		case blockchain.ErrPaused:
+		case cause == blockchain.ErrPaused:
 			log.L().Info("blockchain is paused, skip committing block", zap.Uint64("height", blk.block.Height()))
-		default:
+		case peerAttributable(cause):
 			rejected = true
 			bs.blockP2pPeer(blk.pid)
+			log.L().Warn("blocked peer that served an invalid block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
+		default:
+			// Not provably the peer's fault: never punish from here.
+			rejected = true
 			log.L().Error("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
 		}
 	}
 	return false, rejected
+}
+
+// peerAttributable reports whether a commit failure proves that the peer
+// served a bad block, so that blocking it is justified. It is a whitelist on
+// purpose: a cause belongs here only if a valid block can never produce it on
+// a healthy, up-to-date node, whatever the node's local state. Anything else,
+// including every cause nobody has listed yet, must not block the peer.
+//
+// The commit path validates the footer first (a majority of the delegates must
+// endorse the block hash, which covers the whole header), so any later failure
+// is on a header the delegates agreed on. Such a failure either means the body
+// does not match that header, which is the serving peer's doing, or that this
+// node's state or rules disagree with the delegates, which is not.
+//
+// Deliberately left out:
+//   - blockchain.ErrInvalidBlock (wrong prev hash): the endorsed block links to
+//     a different parent than our tip, i.e. our chain or index has diverged.
+//   - block.ErrDeltaStateMismatch, block.ErrReceiptRootMismatch,
+//     block.ErrGasUsedMismatch, block.ErrBlobGasUsedMismatch,
+//     blockchain.ErrActionNonce, blockchain.ErrBalance and
+//     blockchain.ErrInsufficientGas: they come from executing the block on
+//     local state, so corrupted state or a node on older rules reports them for
+//     a valid block.
+//   - the block signature check: it has no sentinel, and the endorsements
+//     already cover the signed header, so it can only fail on a majority-endorsed
+//     block when this node hashes the header differently (older binary).
+//   - footer errors (endorsements, delegate set): they depend on the delegate
+//     set this node derives from its own state.
+func peerAttributable(cause error) bool {
+	switch cause {
+	case block.ErrTxRootMismatch:
+		// The actions do not hash to the tx root of the endorsed header: the body
+		// was altered or mis-assembled by whoever served it. It only depends on
+		// the block's own bytes, never on local state.
+		return true
+	default:
+		return false
+	}
 }
 
 func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
@@ -301,8 +349,8 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		// Every candidate buffered for this height was invalid, and the height
 		// had refused or evicted candidates for lack of room, so the authentic
 		// block may have been among those lost. Ask for it again now instead of
-		// leaving the height to stall; the peers that served the invalid
-		// candidates were blocked in commitBlocks.
+		// leaving the height to stall; commitBlocks has already blocked the
+		// peers whose candidates were provably invalid.
 		log.L().Info("re-requesting height whose buffered candidates all failed", zap.Uint64("height", height))
 		bs.requestBlock(ctx, height, height, bs.cfg.MaxRepeat)
 	}
@@ -336,7 +384,8 @@ func (bs *blockSyncer) processBlock(peer string, blk *block.Block) uint64 {
 			// arrival), and the tip never moves back below it. Each occurrence
 			// also needs a full queue of rejected candidates, i.e. at least
 			// maxBlocksPerHeight/maxBlocksPerPeerPerHeight peers, all of which
-			// commitBlocks has just blocked.
+			// commitBlocks has just rejected (and blocked, where the failure is
+			// attributable to them).
 			if lossy && rejected {
 				retry = next
 			}
