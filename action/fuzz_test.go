@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"google.golang.org/protobuf/proto"
 )
 
 // FuzzReceiptDeserialize asserts that Receipt.Deserialize never panics on
@@ -66,5 +68,41 @@ func FuzzLogDeserialize(f *testing.F) {
 		}()
 		var l Log
 		_ = l.Deserialize(data)
+	})
+}
+
+// FuzzActionCoreLoadProto asserts that ActionCore decoding
+// (envelope.LoadProto and every action's LoadProto) does not panic on
+// arbitrary input. The seed corpus includes an empty putPollResult as a
+// regression case.
+func FuzzActionCoreLoadProto(f *testing.F) {
+	seeds := []*iotextypes.ActionCore{
+		{Action: &iotextypes.ActionCore_PutPollResult{PutPollResult: &iotextypes.PutPollResult{}}},
+		{Action: &iotextypes.ActionCore_Transfer{Transfer: &iotextypes.Transfer{Amount: "1", Recipient: "io1aaa"}}},
+		{Action: &iotextypes.ActionCore_Execution{Execution: &iotextypes.Execution{Amount: "1"}}},
+		{Action: &iotextypes.ActionCore_StakeCreate{StakeCreate: &iotextypes.StakeCreate{StakedAmount: "1"}}},
+		{Action: &iotextypes.ActionCore_CandidateRegister{CandidateRegister: &iotextypes.CandidateRegister{}}},
+		{Action: &iotextypes.ActionCore_GrantReward{GrantReward: &iotextypes.GrantReward{}}},
+		{Action: &iotextypes.ActionCore_DepositToRewardingFund{DepositToRewardingFund: &iotextypes.DepositToRewardingFund{Amount: "1"}}},
+		{Action: &iotextypes.ActionCore_ClaimFromRewardingFund{ClaimFromRewardingFund: &iotextypes.ClaimFromRewardingFund{Amount: "1"}}},
+	}
+	for _, c := range seeds {
+		if b, err := proto.Marshal(c); err == nil {
+			f.Add(b)
+		}
+	}
+	f.Add([]byte("\x92\x03\x00")) // empty putPollResult
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		core := &iotextypes.ActionCore{}
+		if proto.Unmarshal(data, core) != nil {
+			return
+		}
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("envelope.LoadProto panicked on %d bytes: %v", len(data), r)
+			}
+		}()
+		_ = (&envelope{}).LoadProto(core)
 	})
 }
