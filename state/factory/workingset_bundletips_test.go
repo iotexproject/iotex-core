@@ -130,7 +130,10 @@ func TestWorkingSet_Mint_BundleTips(t *testing.T) {
 			defer func() { require.NoError(f.Stop(startCtx)) }()
 
 			bp := actpool.NewBundlePool(cfg.Genesis)
-			nonce := uint64(1)
+			// the sender is a fresh genesis account, so under
+			// UseZeroNonceForFreshAccount its first nonce is 0; starting at 1
+			// leaves a gap that block validation rejects
+			nonce := uint64(0)
 			for i, recipients := range tc.bundles {
 				bundle := action.NewBundle()
 				for _, to := range recipients {

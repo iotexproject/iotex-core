@@ -446,11 +446,16 @@ func (sdb *stateDB) Mint(
 	}
 	blkBuilder, err := ws.CreateBuilder(ctx, ap, sign, sdb.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
+		// a working set that is not handed on to the cache holds an open
+		// read transaction on the erigon history store; close it so the
+		// transaction is not left open when minting fails, mirroring Validate.
+		ws.Close()
 		return nil, err
 	}
 
 	blk, err := blkBuilder.SignAndBuild(pk)
 	if err != nil {
+		ws.Close()
 		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", expectedBlockHeight)
 	}
 	blkHash := blk.HashBlock()
