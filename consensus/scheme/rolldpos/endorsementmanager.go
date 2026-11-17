@@ -33,9 +33,71 @@ var (
 	// _lockStateKey stores the round lock separately from _statusKey so that
 	// older binaries, which never read it, are unaffected by its presence.
 	_lockStateKey = []byte("lockState")
+	// _signedVotesKey stores the last vote this node signed per topic, so that
+	// a restart within a round cannot make it sign a different block in the
+	// same (height, round, topic)
+	_signedVotesKey = []byte("signedVotes")
 )
 
-const _lockStateVersion = byte(1)
+const (
+	_lockStateVersion   = byte(1)
+	_signedVotesVersion = byte(1)
+)
+
+// signedVote is the last vote signed by this node for a topic
+type signedVote struct {
+	height  uint64
+	round   uint32
+	blkHash []byte
+}
+
+func serializeSignedVotes(votes map[ConsensusVoteTopic]*signedVote) ([]byte, error) {
+	buf := []byte{_signedVotesVersion, byte(len(votes))}
+	for _, topic := range []ConsensusVoteTopic{PROPOSAL, LOCK, COMMIT} {
+		sv, ok := votes[topic]
+		if !ok {
+			continue
+		}
+		if len(sv.blkHash) > 255 {
+			return nil, errors.Errorf("invalid block hash length %d", len(sv.blkHash))
+		}
+		buf = append(buf, byte(topic))
+		buf = binary.BigEndian.AppendUint64(buf, sv.height)
+		buf = binary.BigEndian.AppendUint32(buf, sv.round)
+		buf = append(buf, byte(len(sv.blkHash)))
+		buf = append(buf, sv.blkHash...)
+	}
+	return buf, nil
+}
+
+func deserializeSignedVotes(buf []byte) (map[ConsensusVoteTopic]*signedVote, error) {
+	if len(buf) < 2 || buf[0] != _signedVotesVersion {
+		return nil, errors.New("invalid signed votes encoding")
+	}
+	votes := map[ConsensusVoteTopic]*signedVote{}
+	n, buf := int(buf[1]), buf[2:]
+	for i := 0; i < n; i++ {
+		if len(buf) < 14 {
+			return nil, errors.New("invalid signed votes encoding")
+		}
+		topic := ConsensusVoteTopic(buf[0])
+		sv := &signedVote{
+			height: binary.BigEndian.Uint64(buf[1:9]),
+			round:  binary.BigEndian.Uint32(buf[9:13]),
+		}
+		hashLen := int(buf[13])
+		if len(buf) < 14+hashLen {
+			return nil, errors.New("invalid signed votes encoding")
+		}
+		sv.blkHash = append([]byte{}, buf[14:14+hashLen]...)
+		votes[topic] = sv
+		buf = buf[14+hashLen:]
+	}
+	if len(buf) != 0 {
+		return nil, errors.New("invalid signed votes encoding")
+	}
+	return votes, nil
+}
 
 // lockState is the persisted round lock of a height. It survives restarts so
 // that a node does not forget a lock it has already acted on.
@@ -287,6 +349,8 @@ type endorsementManager struct {
 	// lockStored tells whether _lockStateKey may exist in eManagerDB, so that
 	// nodes that never lock (e.g. enforcement disabled) never touch it
 	lockStored bool
+	// signedVotes is the last vote signed per topic; one slot per topic
+	signedVotes map[ConsensusVoteTopic]*signedVote
 }
 
 func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializer) (*endorsementManager, error) {
@@ -308,6 +372,18 @@ func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializ
 	default:
 		m.lockStored = true
 		log.L().Error("failed to read persisted round lock, starting unlocked", zap.Error(err))
+	}
+	switch buf, err := eManagerDB.Get(_eManagerNS, _signedVotesKey); errors.Cause(err) {
+	case nil:
+		votes, err := deserializeSignedVotes(buf)
+		if err != nil {
+			log.L().Error("failed to decode persisted signed votes, starting without them", zap.Error(err))
+			break
+		}
+		m.signedVotes = votes
+	case db.ErrNotExist:
+	default:
+		log.L().Error("failed to read persisted signed votes, starting without them", zap.Error(err))
 	}
 	return m, nil
 }
@@ -477,6 +553,32 @@ func (m *endorsementManager) SetMintedBlock(blk *block.Block) error {
 
 func (m *endorsementManager) CachedMintedBlock() *block.Block {
 	return m.cachedMintedBlk
+}
+
+// SignedVote returns the last vote this node signed for topic, or nil
+func (m *endorsementManager) SignedVote(topic ConsensusVoteTopic) *signedVote {
+	return m.signedVotes[topic]
+}
+
+// RecordSignedVote records (and persists, before it takes effect) the vote
+// this node is about to sign for topic
+func (m *endorsementManager) RecordSignedVote(topic ConsensusVoteTopic, sv *signedVote) error {
+	votes := make(map[ConsensusVoteTopic]*signedVote, len(m.signedVotes)+1)
+	for t, v := range m.signedVotes {
+		votes[t] = v
+	}
+	votes[topic] = sv
+	if m.eManagerDB != nil {
+		buf, err := serializeSignedVotes(votes)
+		if err != nil {
+			return err
+		}
+		if err := m.eManagerDB.Put(_eManagerNS, _signedVotesKey, buf); err != nil {
+			return err
+		}
+	}
+	m.signedVotes = votes
+	return nil
 }
 
 // Lock returns the persisted round lock, or nil if there is none
