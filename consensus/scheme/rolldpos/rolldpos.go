@@ -44,6 +44,10 @@ type (
 		ToleratedOvertime time.Duration                `yaml:"toleratedOvertime"`
 		Delay             time.Duration                `yaml:"delay"`
 		ConsensusDBPath   string                       `yaml:"consensusDBPath"`
+		// EnforceRoundLock binds this node's endorsements to its round lock.
+		// Keep it enabled; disabling restores the legacy behaviour and is only
+		// an operational escape hatch.
+		EnforceRoundLock bool `yaml:"enforceRoundLock"`
 	}
 )
 
@@ -61,6 +65,7 @@ var DefaultConfig = Config{
 	ToleratedOvertime: 2 * time.Second,
 	Delay:             5 * time.Second,
 	ConsensusDBPath:   "/var/data/consensus.db",
+	EnforceRoundLock:  true,
 }
 
 // RollDPoS is Roll-DPoS consensus main entrance
@@ -352,7 +357,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.clock = clock.New()
 	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.ConsensusDBPath
-	var opts []Option
+	opts := []Option{WithRoundLockEnforcement(b.cfg.Consensus.EnforceRoundLock)}
 	// Premint forks a previous workingset to mint a block ahead of the committed chain tip.
 	// That path needs ws.store.KVStore(), which is nil when a secondary erigon store is wired
 	// (api nodes set HistoryIndexPath). Disable premint there so mint falls back to building

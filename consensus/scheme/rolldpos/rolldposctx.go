@@ -6,6 +6,7 @@
 package rolldpos
 
 import (
+	"bytes"
 	"context"
 	"sync"
 	"time"
@@ -142,6 +143,15 @@ func WithPremintDisabled() Option {
 	}
 }
 
+// WithRoundLockEnforcement sets whether this node binds its endorsements to
+// its round lock. It is enabled by default; disabling it restores
+// the legacy behaviour and is meant only as an operational escape hatch.
+func WithRoundLockEnforcement(enabled bool) Option {
+	return func(ctx *rollDPoSCtx) {
+		ctx.roundCalc.enforceRoundLock = enabled
+	}
+}
+
 // NewRollDPoSCtx returns a context of RollDPoSCtx
 func NewRollDPoSCtx(
 	cfg consensusfsm.ConsensusConfig,
@@ -196,6 +206,7 @@ func NewRollDPoSCtx(
 		rp:                   rp,
 		timeBasedRotation:    timeBasedRotation,
 		beringHeight:         beringHeight,
+		enforceRoundLock:     true,
 	}
 	encodedAddrs := make([]string, 0, len(priKeys))
 	for _, pk := range priKeys {
@@ -233,6 +244,9 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		if err != nil {
 			return errors.Wrap(err, "Error when creating the endorsement manager")
 		}
+	}
+	if ctx.roundCalc.enforceRoundLock && ctx.eManagerDB == nil && len(ctx.priKeys) > 0 {
+		log.L().Warn("consensusDBPath is not set: the round lock of this producer will not survive a restart")
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
@@ -442,6 +456,14 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 		return nil, nil
 	}
 	if ctx.round.IsLocked() {
+		if ctx.round.enforceLock && !ctx.round.hasValidProofOfLock() {
+			// the lock was taken on 2/3 LOCK without a full polka at hand:
+			// other nodes would reject the re-proposal, and a locked node
+			// must not propose anything else, so sit this round out
+			ctx.logger().Info("skip proposing: proof of lock is not a quorum yet",
+				log.Hex("lock", ctx.round.HashOfBlockInLock()))
+			return nil, nil
+		}
 		return ctx.endorseBlockProposal(newBlockProposal(
 			ctx.round.Block(ctx.round.HashOfBlockInLock()),
 			ctx.round.ProofOfLock(),
@@ -536,11 +558,40 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
+		// The round lock is checked first: it is cheap and has no side effect.
+		lockMove, moveRound, lockErr := ctx.checkRoundLock(proposal, blockHash)
+		if lockErr != nil {
+			ctx.loggerWithStats().Warn("refuse to endorse a proposal conflicting with the round lock", zap.Error(lockErr), log.Hex("block", blockHash))
+			// Keep the first refused block of the round, so that a later
+			// polka on it can still be observed and move the lock. Further
+			// refused proposals of the round are neither validated nor stored,
+			// so an equivocating proposer cannot grow the endorsement manager.
+			if !ctx.round.refusedProposal {
+				ctx.round.refusedProposal = true
+				if err := ctx.chain.ValidateBlock(proposal.block); err == nil {
+					if err := ctx.round.AddBlock(proposal.block); err != nil {
+						ctx.logger().Warn("failed to register refused proposal", zap.Error(err))
+					}
+				}
+			}
+			return nil, lockErr
+		}
 		if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
 			return nil, errors.Wrapf(err, "error when validating the proposed block")
 		}
 		if err := ctx.round.AddBlock(proposal.block); err != nil {
 			return nil, err
+		}
+		switch lockMove {
+		case _relock:
+			// the block is registered (and persisted) before the lock moves to it
+			if err := ctx.round.lockOn(blockHash, moveRound, proposal.proofOfLock); err != nil {
+				return nil, err
+			}
+		case _unlockByProof:
+			if err := ctx.round.unlock(proposal.proofOfLock); err != nil {
+				return nil, err
+			}
 		}
 		if err := ctx.prepareNextProposal(proposal.block.Height(), blkHash); err != nil {
 			ctx.loggerWithStats().Warn("failed to prepare next proposal", zap.Error(err), zap.Uint64("prevHeight", proposal.block.Height()))
@@ -576,6 +627,10 @@ func (ctx *rollDPoSCtx) NewLockEndorsement(
 		return nil, nil
 	case nil:
 		if len(blkHash) != 0 {
+			if ctx.round.enforceLock && !bytes.Equal(blkHash, ctx.round.HashOfBlockInLock()) {
+				// unreachable while AddVoteEndorsement moves the lock on every polka
+				return nil, errors.Errorf("refuse to lock on %x while locked on %x", blkHash, ctx.round.HashOfBlockInLock())
+			}
 			ctx.loggerWithStats().Debug("Locked", log.Hex("block", blkHash))
 			return ctx.newEndorsement(
 				blkHash,
@@ -603,6 +658,27 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 	case ErrInsufficientEndorsements:
 		return nil, nil
 	case nil:
+		if ctx.round.enforceLock && len(blkHash) != 0 &&
+			(!ctx.round.IsLocked() || !bytes.Equal(blkHash, ctx.round.HashOfBlockInLock())) {
+			if ctx.round.IsLocked() && ctx.round.LockRound() == ctx.round.Number() {
+				// a LOCK quorum conflicting with a polka of the same round
+				// needs equivocating votes; never commit away from it
+				return nil, errors.Errorf(
+					"refuse to pre-commit %x while locked on %x in the same round",
+					blkHash, ctx.round.HashOfBlockInLock(),
+				)
+			}
+			// 2/3 LOCK of the current round implies a polka of the current
+			// round; lock before signing COMMIT so that every COMMIT signer
+			// is locked on what it signed
+			if err := ctx.round.lockOn(
+				blkHash,
+				ctx.round.Number(),
+				ctx.round.Endorsements(blkHash, []ConsensusVoteTopic{PROPOSAL, COMMIT}),
+			); err != nil {
+				return nil, err
+			}
+		}
 		ctx.loggerWithStats().Debug("Ready to pre-commit")
 		return ctx.newEndorsement(
 			blkHash,
@@ -869,6 +945,138 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 
 func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
 	return ctx.round.LogWithStats(log.Logger("consensus"))
+}
+
+type lockMove int
+
+const (
+	_keepLock lockMove = iota
+	// _relock moves the lock to the proposed block (proof of lock)
+	_relock
+	// _unlockByProof releases the lock (proof of unlock: a nil polka)
+	_unlockByProof
+)
+
+// checkRoundLock decides, without side effects, whether this node may endorse
+// proposal while it holds a round lock. A conflicting proposal is endorsable
+// only if it carries, from a round later than this node's lock round and
+// earlier than the current round, either a proof of lock on the proposed
+// block (the lock moves to it) or a proof of unlock, i.e. a polka on the
+// empty block (the lock is released). The caller applies the move as of
+// moveRound.
+func (ctx *rollDPoSCtx) checkRoundLock(proposal *blockProposal, blkHash []byte) (move lockMove, moveRound uint32, err error) {
+	round := ctx.round
+	if !round.enforceLock || !round.IsLocked() || bytes.Equal(blkHash, round.HashOfBlockInLock()) {
+		return _keepLock, 0, nil
+	}
+	inWindow := func(r uint32) bool { return r > round.LockRound() && r < round.Number() }
+	polRound, decided, polErr := ctx.verifyProofOfLock(proposal.block, proposal.proofOfLock)
+	if polErr == nil {
+		if decided {
+			// 2/3 COMMIT on the proposed block: it is final
+			return _relock, round.Number(), nil
+		}
+		if !inWindow(polRound) {
+			return _keepLock, 0, errors.Errorf(
+				"locked on %x since round %d, proof of lock for %x is from round %d",
+				round.HashOfBlockInLock(), round.LockRound(), blkHash, polRound,
+			)
+		}
+		return _relock, polRound, nil
+	}
+	pouRound, pouErr := ctx.verifyProofOfUnlock(proposal.block.Height(), proposal.proofOfLock)
+	if pouErr == nil {
+		if !inWindow(pouRound) {
+			return _keepLock, 0, errors.Errorf(
+				"locked on %x since round %d, proof of unlock (nil polka) is from round %d",
+				round.HashOfBlockInLock(), round.LockRound(), pouRound,
+			)
+		}
+		return _unlockByProof, pouRound, nil
+	}
+	return _keepLock, 0, errors.Errorf(
+		"locked on %x since round %d, no valid proof for %x: not a proof of lock (%v), not a proof of unlock (%v)",
+		round.HashOfBlockInLock(), round.LockRound(), blkHash, polErr, pouErr,
+	)
+}
+
+// verifyProofOfUnlock checks that pol is a polka on the empty block: 2/3
+// PROPOSAL endorsements of the empty hash, all of a single round, which it
+// returns. Honest nodes locked on a block never endorse the empty block, so a
+// nil polka of a round after a lock proves nothing was decided since.
+func (ctx *rollDPoSCtx) verifyProofOfUnlock(height uint64, pol []*endorsement.Endorsement) (uint32, error) {
+	if len(pol) == 0 {
+		return 0, errors.New("empty proof of unlock")
+	}
+	interval := ctx.BlockInterval(height)
+	tmp, err := ctx.roundCalc.NewRound(height, interval, ctx.round.StartTime(), nil)
+	if err != nil {
+		return 0, err
+	}
+	var polRound uint32
+	for i, en := range pol {
+		if err := tmp.AddVoteEndorsement(NewConsensusVote(nil, PROPOSAL), en); err != nil {
+			return 0, errors.Wrap(err, "not a PROPOSAL endorsement of the empty block")
+		}
+		r, _, err := ctx.roundCalc.RoundInfo(height, interval, en.Timestamp())
+		if err != nil {
+			return 0, err
+		}
+		if i > 0 && r != polRound {
+			return 0, errors.New("proof of unlock spans multiple rounds")
+		}
+		polRound = r
+	}
+	if !tmp.EndorsedByMajority(nil, []ConsensusVoteTopic{PROPOSAL}) {
+		return 0, errors.Wrap(ErrInsufficientEndorsements, "proof of unlock")
+	}
+	return polRound, nil
+}
+
+// verifyProofOfLock checks that pol holds 2/3 PROPOSAL(+COMMIT) endorsements
+// of blk, and returns the round of its PROPOSAL endorsements, which must all
+// belong to a single round. decided is true if pol holds 2/3 COMMIT alone.
+func (ctx *rollDPoSCtx) verifyProofOfLock(
+	blk *block.Block,
+	pol []*endorsement.Endorsement,
+) (polRound uint32, decided bool, err error) {
+	if blk == nil || len(pol) == 0 {
+		return 0, false, errors.New("empty proof of lock")
+	}
+	height := blk.Height()
+	interval := ctx.BlockInterval(height)
+	tmp, err := ctx.roundCalc.NewRound(height, interval, ctx.round.StartTime(), nil)
+	if err != nil {
+		return 0, false, err
+	}
+	if err := tmp.AddBlock(blk); err != nil {
+		return 0, false, err
+	}
+	blkHash := blk.HashBlock()
+	hasProposal := false
+	for _, en := range pol {
+		if err := tmp.AddVoteEndorsement(NewConsensusVote(blkHash[:], PROPOSAL), en); err == nil {
+			r, _, err := ctx.roundCalc.RoundInfo(height, interval, en.Timestamp())
+			if err != nil {
+				return 0, false, err
+			}
+			if hasProposal && r != polRound {
+				return 0, false, errors.New("proof of lock spans multiple rounds")
+			}
+			polRound, hasProposal = r, true
+			continue
+		}
+		if err := tmp.AddVoteEndorsement(NewConsensusVote(blkHash[:], COMMIT), en); err != nil {
+			return 0, false, errors.Wrap(err, "invalid endorsement in proof of lock")
+		}
+	}
+	if tmp.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{COMMIT}) {
+		return 0, true, nil
+	}
+	if !hasProposal || !tmp.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{PROPOSAL, COMMIT}) {
+		return 0, false, errors.Wrap(ErrInsufficientEndorsements, "proof of lock")
+	}
+	return polRound, false, nil
 }
 
 func (ctx *rollDPoSCtx) verifyVote(
