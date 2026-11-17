@@ -214,6 +214,45 @@ func (ctx *roundCtx) persistLock(st status, blkHash []byte, round uint32, pol []
 	})
 }
 
+// recordSigning is called before this node signs (blkHash, topic) in the
+// current round. It refuses a block different from one already signed for
+// the same (height, round, topic), which a restart within the round would
+// otherwise allow, and persists the vote before it is signed.
+func (ctx *roundCtx) recordSigning(topic ConsensusVoteTopic, blkHash []byte) error {
+	signed, err := ctx.checkSigning(topic, blkHash)
+	if err != nil || signed {
+		return err
+	}
+	if err := ctx.eManager.RecordSignedVote(topic, &signedVote{
+		height:  ctx.height,
+		round:   ctx.roundNum,
+		blkHash: blkHash,
+	}); err != nil {
+		return errors.Wrap(err, "failed to persist signed vote")
+	}
+	return nil
+}
+
+// checkSigning reports whether (blkHash, topic) was already signed in the
+// current round, and fails if a different block was signed for that topic.
+// It has no side effect.
+func (ctx *roundCtx) checkSigning(topic ConsensusVoteTopic, blkHash []byte) (signed bool, err error) {
+	if !ctx.enforceLock || ctx.eManager == nil {
+		return true, nil
+	}
+	sv := ctx.eManager.SignedVote(topic)
+	if sv == nil || sv.height != ctx.height || sv.round != ctx.roundNum {
+		return false, nil
+	}
+	if bytes.Equal(sv.blkHash, blkHash) {
+		return true, nil
+	}
+	return false, errors.Errorf(
+		"refuse to sign topic %d for %x at height %d round %d: already signed %x",
+		topic, blkHash, ctx.height, ctx.roundNum, sv.blkHash,
+	)
+}
+
 // hasValidProofOfLock reports whether the proof of lock held for blockInLock
 // is a quorum that other nodes will accept when this node re-proposes it. A
 // lock taken on 2/3 LOCK (NewPreCommitEndorsement) may hold a weaker proof.

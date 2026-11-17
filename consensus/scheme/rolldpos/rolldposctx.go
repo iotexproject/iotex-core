@@ -558,7 +558,13 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
-		// The round lock is checked first: it is cheap and has no side effect.
+		// After a restart within the round, a different block may already have
+		// been signed; refuse before validating or storing anything.
+		if _, err := ctx.round.checkSigning(PROPOSAL, blockHash); err != nil {
+			ctx.loggerWithStats().Warn("refuse to endorse a second proposal in the round", zap.Error(err), log.Hex("block", blockHash))
+			return nil, err
+		}
+		// The round lock is checked next: it is cheap and has no side effect.
 		lockMove, moveRound, lockErr := ctx.checkRoundLock(proposal, blockHash)
 		if lockErr != nil {
 			ctx.loggerWithStats().Warn("refuse to endorse a proposal conflicting with the round lock", zap.Error(lockErr), log.Hex("block", blockHash))
@@ -1113,6 +1119,9 @@ func (ctx *rollDPoSCtx) newEndorsement(
 	topic ConsensusVoteTopic,
 	timestamp time.Time,
 ) ([]*EndorsedConsensusMessage, error) {
+	if err := ctx.round.recordSigning(topic, blkHash); err != nil {
+		return nil, err
+	}
 	vote := NewConsensusVote(
 		blkHash,
 		topic,
