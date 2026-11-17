@@ -26,6 +26,7 @@ type roundCalculator struct {
 	delegatesByEpochFunc NodesSelectionByEpochFunc
 	proposersByEpochFunc NodesSelectionByEpochFunc
 	beringHeight         uint64
+	enforceRoundLock     bool
 }
 
 // UpdateRound updates previous roundCtx
@@ -66,6 +67,8 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	var status status
 	var blockInLock []byte
 	var proofOfLock []*endorsement.Endorsement
+	var lockRound uint32
+	var persisted *lockState
 	if height == round.Height() {
 		err = round.eManager.Cleanup(roundStartTime)
 		if err != nil {
@@ -74,14 +77,26 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		status = round.status
 		blockInLock = round.blockInLock
 		proofOfLock = round.proofOfLock
+		lockRound = round.lockRound
 	} else {
-		err = round.eManager.Cleanup(time.Time{})
+		if c.enforceRoundLock && round.Height() == 0 {
+			// first round after Start: a lock persisted for this height must
+			// survive the restart, together with the locked block
+			if ls := round.eManager.Lock(); ls != nil && ls.height == height {
+				persisted = ls
+			}
+		}
+		if persisted != nil {
+			err = round.eManager.Cleanup(roundStartTime)
+		} else {
+			err = round.eManager.Cleanup(time.Time{})
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
 	prevHash := c.chain.TipHash()
-	return &roundCtx{
+	newRound := &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
@@ -99,7 +114,21 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		status:             status,
 		blockInLock:        blockInLock,
 		proofOfLock:        proofOfLock,
-	}, nil
+		lockRound:          lockRound,
+		enforceLock:        c.enforceRoundLock,
+	}
+	if persisted != nil {
+		if newRound.restoreLock(persisted) {
+			log.L().Info("restored persisted round lock",
+				zap.Uint64("height", height),
+				zap.Uint32("lockRound", persisted.round),
+				log.Hex("block", persisted.blkHash),
+			)
+		} else if err = round.eManager.SetLock(nil); err != nil {
+			return nil, err
+		}
+	}
+	return newRound, nil
 }
 
 // Proposer returns the block producer of the round
@@ -265,6 +294,7 @@ func (c *roundCalculator) newRound(
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
 		status:             _open,
+		enforceLock:        c.enforceRoundLock,
 	}
 	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
 
@@ -299,5 +329,6 @@ func (c *roundCalculator) Fork(fork ForkChain) *roundCalculator {
 		delegatesByEpochFunc: c.delegatesByEpochFunc,
 		proposersByEpochFunc: c.proposersByEpochFunc,
 		beringHeight:         c.beringHeight,
+		enforceRoundLock:     c.enforceRoundLock,
 	}
 }

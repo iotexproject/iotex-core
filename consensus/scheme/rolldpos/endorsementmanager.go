@@ -6,9 +6,11 @@
 package rolldpos
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"time"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -28,7 +30,71 @@ var (
 	// ErrExpiredEndorsement indicates that the endorsement is expired
 	ErrExpiredEndorsement = errors.New("the endorsement has been replaced or expired")
 	_statusKey            = []byte("status")
+	// _lockStateKey stores the round lock separately from _statusKey so that
+	// older binaries, which never read it, are unaffected by its presence.
+	_lockStateKey = []byte("lockState")
 )
+
+const _lockStateVersion = byte(1)
+
+// lockState is the persisted round lock of a height. It survives restarts so
+// that a node does not forget a lock it has already acted on.
+type lockState struct {
+	height      uint64
+	round       uint32
+	status      status
+	blkHash     []byte
+	proofOfLock []*endorsement.Endorsement
+}
+
+func (ls *lockState) serialize() ([]byte, error) {
+	if len(ls.blkHash) > 255 {
+		return nil, errors.Errorf("invalid block hash length %d", len(ls.blkHash))
+	}
+	footer := &iotextypes.BlockFooter{}
+	for _, en := range ls.proofOfLock {
+		footer.Endorsements = append(footer.Endorsements, en.Proto())
+	}
+	pol, err := proto.Marshal(footer)
+	if err != nil {
+		return nil, err
+	}
+	buf := make([]byte, 0, 15+len(ls.blkHash)+len(pol))
+	buf = append(buf, _lockStateVersion)
+	buf = binary.BigEndian.AppendUint64(buf, ls.height)
+	buf = binary.BigEndian.AppendUint32(buf, ls.round)
+	buf = append(buf, byte(ls.status), byte(len(ls.blkHash)))
+	buf = append(buf, ls.blkHash...)
+	return append(buf, pol...), nil
+}
+
+func deserializeLockState(buf []byte) (*lockState, error) {
+	if len(buf) < 15 || buf[0] != _lockStateVersion {
+		return nil, errors.New("invalid lock state encoding")
+	}
+	ls := &lockState{
+		height: binary.BigEndian.Uint64(buf[1:9]),
+		round:  binary.BigEndian.Uint32(buf[9:13]),
+		status: status(buf[13]),
+	}
+	hashLen := int(buf[14])
+	if len(buf) < 15+hashLen {
+		return nil, errors.New("invalid lock state encoding")
+	}
+	ls.blkHash = append([]byte{}, buf[15:15+hashLen]...)
+	footer := &iotextypes.BlockFooter{}
+	if err := proto.Unmarshal(buf[15+hashLen:], footer); err != nil {
+		return nil, err
+	}
+	for _, enPb := range footer.Endorsements {
+		en := &endorsement.Endorsement{}
+		if err := en.LoadProto(enPb); err != nil {
+			return nil, err
+		}
+		ls.proofOfLock = append(ls.proofOfLock, en)
+	}
+	return ls, nil
+}
 
 // EndorsedByMajorityFunc defines a function to give an information of consensus status
 type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
@@ -217,9 +283,36 @@ type endorsementManager struct {
 	eManagerDB      db.KVStore
 	collections     map[string]*blockEndorsementCollection
 	cachedMintedBlk *block.Block
+	lock            *lockState
+	// lockStored tells whether _lockStateKey may exist in eManagerDB, so that
+	// nodes that never lock (e.g. enforcement disabled) never touch it
+	lockStored bool
 }
 
 func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializer) (*endorsementManager, error) {
+	m, err := loadEndorsementManager(eManagerDB, deserializer)
+	if err != nil || eManagerDB == nil {
+		return m, err
+	}
+	switch buf, err := eManagerDB.Get(_eManagerNS, _lockStateKey); errors.Cause(err) {
+	case nil:
+		m.lockStored = true
+		ls, err := deserializeLockState(buf)
+		if err != nil {
+			// an unreadable lock must not block startup; the node starts unlocked
+			log.L().Error("failed to decode persisted round lock, starting unlocked", zap.Error(err))
+			break
+		}
+		m.lock = ls
+	case db.ErrNotExist:
+	default:
+		m.lockStored = true
+		log.L().Error("failed to read persisted round lock, starting unlocked", zap.Error(err))
+	}
+	return m, nil
+}
+
+func loadEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializer) (*endorsementManager, error) {
 	if eManagerDB == nil {
 		return &endorsementManager{
 			eManagerDB:      nil,
@@ -386,6 +479,33 @@ func (m *endorsementManager) CachedMintedBlock() *block.Block {
 	return m.cachedMintedBlk
 }
 
+// Lock returns the persisted round lock, or nil if there is none
+func (m *endorsementManager) Lock() *lockState {
+	return m.lock
+}
+
+// SetLock records the round lock and persists it; nil clears it
+func (m *endorsementManager) SetLock(ls *lockState) error {
+	if m.eManagerDB != nil {
+		if ls == nil {
+			if err := m.eManagerDB.Delete(_eManagerNS, _lockStateKey); err != nil {
+				return err
+			}
+		} else {
+			buf, err := ls.serialize()
+			if err != nil {
+				return err
+			}
+			if err := m.eManagerDB.Put(_eManagerNS, _lockStateKey, buf); err != nil {
+				return err
+			}
+		}
+		m.lockStored = ls != nil
+	}
+	m.lock = ls
+	return nil
+}
+
 func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 	if !timestamp.IsZero() {
 		for encoded, c := range m.collections {
@@ -393,6 +513,12 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 		}
 	} else {
 		m.collections = map[string]*blockEndorsementCollection{}
+		// a zero timestamp means a new height, where any previous lock is void
+		if m.lock != nil || m.lockStored {
+			if err := m.SetLock(nil); err != nil {
+				return err
+			}
+		}
 	}
 	if m.cachedMintedBlk != nil {
 		if timestamp.IsZero() || m.cachedMintedBlk.Timestamp().Before(timestamp) {
