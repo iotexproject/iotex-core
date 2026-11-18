@@ -58,7 +58,10 @@ type roundCtx struct {
 	// refusedProposal tells whether a proposal conflicting with the lock was
 	// already refused (and its block kept) in this round
 	refusedProposal bool
-	eManager        *endorsementManager
+	// abstainedProposal tells whether a proposal was taken in while this node
+	// sits out after a start; it takes in one per round
+	abstainedProposal bool
+	eManager          *endorsementManager
 }
 
 func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {

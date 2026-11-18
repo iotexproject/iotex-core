@@ -624,6 +624,10 @@ func TestRoundLockBoundsRefusedProposals(t *testing.T) {
 		if k == 0 {
 			first = h[:]
 		}
+		if k == 5 {
+			// the same round rebuilt (e.g. a timeout within tolerated overtime)
+			n.prepare(51, 1)
+		}
 		res, err := n.ctx.NewProposalEndorsement(n.deliverProposal(prop))
 		require.Error(err)
 		require.Nil(res)

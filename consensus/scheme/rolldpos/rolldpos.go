@@ -357,7 +357,10 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.clock = clock.New()
 	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.ConsensusDBPath
-	opts := []Option{WithRoundLockEnforcement(b.cfg.Consensus.EnforceRoundLock)}
+	opts := []Option{
+		WithRoundLockEnforcement(b.cfg.Consensus.EnforceRoundLock),
+		WithStartupAbstention(true),
+	}
 	// Premint forks a previous workingset to mint a block ahead of the committed chain tip.
 	// That path needs ws.store.KVStore(), which is nil when a secondary erigon store is wired
 	// (api nodes set HistoryIndexPath). Disable premint there so mint falls back to building
