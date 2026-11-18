@@ -107,7 +107,14 @@ type (
 		clock          clock.Clock
 		active         bool
 		disablePremint bool
-		mutex          sync.RWMutex
+		// startupAbstention makes a producer that cannot tell what it signed
+		// before this start sit out the first rounds of the height it starts in
+		startupAbstention bool
+		// abstainHeight and abstainRound bound where this node does not sign:
+		// rounds up to abstainRound at abstainHeight; abstainHeight 0 is none
+		abstainHeight uint64
+		abstainRound  uint32
+		mutex         sync.RWMutex
 	}
 )
 
@@ -149,6 +156,17 @@ func WithPremintDisabled() Option {
 func WithRoundLockEnforcement(enabled bool) Option {
 	return func(ctx *rollDPoSCtx) {
 		ctx.roundCalc.enforceRoundLock = enabled
+	}
+}
+
+// WithStartupAbstention sets whether a producer whose signed votes and round
+// lock from before this start are unknown (no consensus DB, a lost or
+// unreadable one, or a lock that cannot be restored) refrains from signing
+// and proposing in the rounds of that height it may have voted in, plus a
+// margin. It only applies while the round lock is enforced.
+func WithStartupAbstention(enabled bool) Option {
+	return func(ctx *rollDPoSCtx) {
+		ctx.startupAbstention = enabled
 	}
 }
 
@@ -249,8 +267,22 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		log.L().Warn("consensusDBPath is not set: the round lock of this producer will not survive a restart")
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
-
-	return err
+	if err != nil {
+		return err
+	}
+	// decided afresh on every start, from what this start could read back
+	ctx.abstainHeight, ctx.abstainRound = 0, 0
+	if ctx.startupAbstention && ctx.roundCalc.enforceRoundLock && len(ctx.priKeys) > 0 && !eManager.signingStateKnown() {
+		if tip := ctx.chain.TipHeight(); tip > 0 {
+			// what this node signed at tip+1 before the start is unknown, so
+			// signing there again could contradict it; the rounds to sit out
+			// are set when the first round starts
+			ctx.abstainHeight = tip + 1
+			log.L().Warn("signed votes from before this start are unknown: not signing in the first rounds of the next height",
+				zap.Uint64("height", ctx.abstainHeight))
+		}
+	}
+	return nil
 }
 
 func (ctx *rollDPoSCtx) Stop(c context.Context) error {
@@ -420,6 +452,18 @@ func (ctx *rollDPoSCtx) Prepare() error {
 		zap.Uint32("round", newRound.roundNum),
 		zap.String("roundStartTime", newRound.roundStartTime.String()),
 	)
+	if ctx.round.height == 0 && ctx.abstainHeight != 0 {
+		// The first round after the start. This node cannot have signed in a
+		// round that had not started yet, so it sits out the rounds up to the
+		// current one plus a margin, and then signs as a node without a lock
+		// rather than stall the height for good when many producers start
+		// like this at once.
+		if newRound.height == ctx.abstainHeight {
+			ctx.abstainRound = newRound.roundNum + _abstainRounds
+		} else {
+			ctx.abstainHeight = 0
+		}
+	}
 	ctx.round = newRound
 	_consensusHeightMtc.WithLabelValues().Set(float64(ctx.round.height))
 	_timeSlotMtc.WithLabelValues().Set(float64(ctx.round.roundNum))
@@ -453,6 +497,10 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 		}
 	}
 	if privateKey == nil {
+		return nil, nil
+	}
+	if ctx.abstaining() {
+		ctx.logger().Info("skip proposing: votes signed at this height before the start are unknown")
 		return nil, nil
 	}
 	if ctx.round.IsLocked() {
@@ -558,6 +606,12 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
+		// While sitting out nothing is signed, so nothing stops a second
+		// proposal of the round below; take in one per round only.
+		abstaining := ctx.abstaining()
+		if abstaining && ctx.round.abstainedProposal {
+			return nil, errors.New("not taking in another proposal of the round while not signing after the start")
+		}
 		// After a restart within the round, a different block may already have
 		// been signed; refuse before validating or storing anything.
 		if _, err := ctx.round.checkSigning(PROPOSAL, blockHash); err != nil {
@@ -581,6 +635,9 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 				}
 			}
 			return nil, lockErr
+		}
+		if abstaining {
+			ctx.round.abstainedProposal = true
 		}
 		if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
 			return nil, errors.Wrapf(err, "error when validating the proposed block")
@@ -953,6 +1010,35 @@ func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
 	return ctx.round.LogWithStats(log.Logger("consensus"))
 }
 
+// abstaining reports whether this node must not sign in the current round,
+// because what it signed at this height before the start is unknown: the start
+// found no record of its signed votes, or the round lock persisted for the
+// height could not be restored. It still signs when the other delegates cannot
+// form a quorum without it, since sitting out would then stop the chain.
+func (ctx *rollDPoSCtx) abstaining() bool {
+	if !ctx.startupAbstention {
+		return false
+	}
+	height, num := ctx.round.Height(), ctx.round.Number()
+	if height == 0 {
+		return false
+	}
+	lostHeight, lostRound := ctx.round.eManager.LockLost()
+	if !(height == ctx.abstainHeight && num <= ctx.abstainRound) &&
+		!(height == lostHeight && num <= lostRound) {
+		return false
+	}
+	// count each delegate once: the same key may be configured twice
+	mine := map[string]struct{}{}
+	for _, addr := range ctx.encodedAddrs {
+		if ctx.round.IsDelegate(addr) {
+			mine[addr] = struct{}{}
+		}
+	}
+	n := int(ctx.round.numOfDelegates)
+	return 3*(n-len(mine)) > 2*n
+}
+
 type lockMove int
 
 const (
@@ -1119,6 +1205,12 @@ func (ctx *rollDPoSCtx) newEndorsement(
 	topic ConsensusVoteTopic,
 	timestamp time.Time,
 ) ([]*EndorsedConsensusMessage, error) {
+	if ctx.abstaining() {
+		return nil, errors.Errorf(
+			"not signing at height %d: votes signed there before this start are unknown",
+			ctx.round.Height(),
+		)
+	}
 	if err := ctx.round.recordSigning(topic, blkHash); err != nil {
 		return nil, err
 	}

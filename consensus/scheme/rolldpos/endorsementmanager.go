@@ -351,6 +351,20 @@ type endorsementManager struct {
 	lockStored bool
 	// signedVotes is the last vote signed per topic; one slot per topic
 	signedVotes map[ConsensusVoteTopic]*signedVote
+	// signedVotesLoaded tells whether a signed votes record was read at
+	// startup, i.e. this node's votes before the start are known
+	signedVotesLoaded bool
+	// lockUnreadable tells whether a persisted round lock existed at startup
+	// but could not be read
+	lockUnreadable bool
+	// keepUnreadableLock makes a new-height Cleanup keep an unreadable lock
+	// record; set for the first height after the start only
+	keepUnreadableLock bool
+	// lockLostHeight is a height whose persisted round lock could not be
+	// restored after a restart, or 0; lockLostRound is the last round there
+	// this node sits out
+	lockLostHeight uint64
+	lockLostRound  uint32
 }
 
 func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializer) (*endorsementManager, error) {
@@ -365,12 +379,14 @@ func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializ
 		if err != nil {
 			// an unreadable lock must not block startup; the node starts unlocked
 			log.L().Error("failed to decode persisted round lock, starting unlocked", zap.Error(err))
+			m.lockUnreadable = true
 			break
 		}
 		m.lock = ls
 	case db.ErrNotExist:
 	default:
 		m.lockStored = true
+		m.lockUnreadable = true
 		log.L().Error("failed to read persisted round lock, starting unlocked", zap.Error(err))
 	}
 	switch buf, err := eManagerDB.Get(_eManagerNS, _signedVotesKey); errors.Cause(err) {
@@ -381,6 +397,7 @@ func newEndorsementManager(eManagerDB db.KVStore, deserializer *block.Deserializ
 			break
 		}
 		m.signedVotes = votes
+		m.signedVotesLoaded = true
 	case db.ErrNotExist:
 	default:
 		log.L().Error("failed to read persisted signed votes, starting without them", zap.Error(err))
@@ -560,6 +577,24 @@ func (m *endorsementManager) SignedVote(topic ConsensusVoteTopic) *signedVote {
 	return m.signedVotes[topic]
 }
 
+// signingStateKnown reports whether the votes this node signed and its round
+// lock before the start were read back: a signed votes record exists and no
+// persisted lock was unreadable. A missing consensus DB (nil manager) knows
+// nothing.
+func (m *endorsementManager) signingStateKnown() bool {
+	return m != nil && m.signedVotesLoaded && !m.lockUnreadable
+}
+
+// LockLost returns a height whose persisted round lock could not be restored
+// after a restart (0 if none) and the last round there this node sits out
+func (m *endorsementManager) LockLost() (uint64, uint32) {
+	return m.lockLostHeight, m.lockLostRound
+}
+
+func (m *endorsementManager) markLockLost(height uint64, untilRound uint32) {
+	m.lockLostHeight, m.lockLostRound = height, untilRound
+}
+
 // RecordSignedVote records (and persists, before it takes effect) the vote
 // this node is about to sign for topic
 func (m *endorsementManager) RecordSignedVote(topic ConsensusVoteTopic, sv *signedVote) error {
@@ -615,8 +650,11 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 		}
 	} else {
 		m.collections = map[string]*blockEndorsementCollection{}
-		// a zero timestamp means a new height, where any previous lock is void
-		if m.lock != nil || m.lockStored {
+		// a zero timestamp means a new height, where any previous lock is void;
+		// an unreadable lock record is kept through the first height after
+		// the start, so that another restart there still finds it
+		keep := m.lock == nil && m.lockUnreadable && m.keepUnreadableLock
+		if m.lock != nil || (m.lockStored && !keep) {
 			if err := m.SetLock(nil); err != nil {
 				return err
 			}

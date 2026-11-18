@@ -19,6 +19,10 @@ import (
 
 var errInvalidCurrentTime = errors.New("invalid current time")
 
+// _abstainRounds is how many rounds past the current one a producer that lost
+// track of its votes at a height sits out before it signs again
+const _abstainRounds = 2
+
 type roundCalculator struct {
 	chain                ForkChain
 	timeBasedRotation    bool
@@ -89,6 +93,9 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		if persisted != nil {
 			err = round.eManager.Cleanup(roundStartTime)
 		} else {
+			// the first height after the start (also when Prepare is retried
+			// there) keeps an unreadable lock record; later heights clear it
+			round.eManager.keepUnreadableLock = round.Height() == 0
 			err = round.eManager.Cleanup(time.Time{})
 		}
 		if err != nil {
@@ -117,6 +124,11 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		lockRound:          lockRound,
 		enforceLock:        c.enforceRoundLock,
 	}
+	if height == round.Height() && roundNum == round.roundNum {
+		// the same round rebuilt: its proposal bounds still hold
+		newRound.refusedProposal = round.refusedProposal
+		newRound.abstainedProposal = round.abstainedProposal
+	}
 	if persisted != nil {
 		if newRound.restoreLock(persisted) {
 			log.L().Info("restored persisted round lock",
@@ -124,8 +136,18 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 				zap.Uint32("lockRound", persisted.round),
 				log.Hex("block", persisted.blkHash),
 			)
-		} else if err = round.eManager.SetLock(nil); err != nil {
-			return nil, err
+		} else {
+			// the lock this node held at the height is gone; it sits out the
+			// rounds it may have voted in rather than vote there as if it
+			// never had one. The record stays until the height moves on, so
+			// that another restart at this height sits out again.
+			log.L().Warn("failed to restore persisted round lock",
+				zap.Uint64("height", height),
+				zap.Uint32("lockRound", persisted.round),
+				zap.Uint8("status", uint8(persisted.status)),
+				log.Hex("block", persisted.blkHash),
+			)
+			round.eManager.markLockLost(height, roundNum+_abstainRounds)
 		}
 	}
 	return newRound, nil
