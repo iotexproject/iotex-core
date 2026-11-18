@@ -2,7 +2,8 @@
 
 Status: **draft, non-activated**. `ioctl stake2 guard` is the reference wallet
 CLI for IIP-65. It works against a network that has activated the feature
-(today: local and nightly networks).
+(today: local and nightly networks; to start a local one, see
+[`qsb-local-devnet.md`](./qsb-local-devnet.md)).
 
 A *guard* is a post-quantum key (SLH-DSA-SHA2-192s) bound to a native staking
 bucket. Once a bucket is guarded, the owner's ECDSA key alone can no longer

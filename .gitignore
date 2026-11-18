@@ -41,3 +41,5 @@ coverage.txt
 .editorconfig
 
 .aicontext
+# tools/qsb-localnet/run.sh
+.qsb-localnet/
