@@ -486,6 +486,14 @@ func (elp *envelope) loadProtoActionPayload(pbAct *iotextypes.ActionCore) error 
 		}
 		elp.payload = act
 	case pbAct.GetGuardedBucketOp() != nil:
+		if pbAct.GetGuardedBucketOp().GetOp() == draft5EnvelopeOp {
+			act, err := loadVaultProto(pbAct.GetGuardedBucketOp())
+			if err != nil {
+				return err
+			}
+			elp.payload = act
+			return nil
+		}
 		act := &GuardedBucketOp{}
 		if err := act.LoadProto(pbAct.GetGuardedBucketOp()); err != nil {
 			return err

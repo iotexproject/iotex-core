@@ -90,19 +90,29 @@ func putBucketGuard(sm protocol.StateManager, index uint64, g *bucketguard.Guard
 	return errors.Wrapf(err, "failed to write guard of bucket %d", index)
 }
 
-// deleteBucketGuardWithBucket removes a bucket's guard record, a tombstone
-// included, in the same snapshot that deletes the bucket (IIP §4). Bucket
-// indices are never reused, so the record would otherwise be orphaned.
+// deleteBucketGuardWithBucket removes native bucket guard records, including
+// Class B recovery metadata. Class A tombstones live under _vaultGuard and
+// remain permanent even when a native bucket with the same index is deleted.
 func deleteBucketGuardWithBucket(ctx context.Context, sm protocol.StateManager, index uint64) error {
 	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
 		return nil
 	}
 	g, err := getBucketGuard(sm, index)
-	if err != nil || g == nil {
+	if err != nil {
 		return err
 	}
-	_, err = sm.DelState(protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(bucketGuardKey(index)), protocol.ObjectOption(&BucketGuardRecord{}))
-	return errors.Wrapf(err, "failed to delete guard of bucket %d", index)
+	if g != nil {
+		if _, err := sm.DelState(protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(bucketGuardKey(index)), protocol.ObjectOption(&BucketGuardRecord{})); err != nil {
+			return errors.Wrapf(err, "failed to delete guard of bucket %d", index)
+		}
+	}
+	if _, err := ReadStakingGuardV2(sm, index); errors.Cause(err) == state.ErrStateNotExist {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	_, err = sm.DelState(append(vaultStateOptions(vaultKey(_stakingGuardV2, index)), protocol.ObjectOption(&BucketGuardV2Record{}))...)
+	return errors.Wrapf(err, "failed to delete V2 guard of bucket %d", index)
 }
 
 // bucketAuth is the authority under which a native bucket is written
@@ -502,7 +512,21 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	}
 
 	// step 6
-	grant, err := bucketguard.VerifyOp(bucketguard.ParamsV1(), guardDomain(ctx), owner, cur, op)
+	var grant *bucketguard.Grant
+	var nextV2 *bucketguard.BucketGuardV2
+	recovery, e := ReadStakingGuardV2(csm.SM(), index)
+	if e != nil && errors.Cause(e) != state.ErrStateNotExist {
+		return log, nil, e
+	}
+	if e == nil && len(recovery.PublicKey) > 0 {
+		engine, e := bucketguard.LoadVaultTransition(guardDomain(ctx), bucketguard.ParamsV2(), 0, bucketguard.ClassBStaking, index, &bucketguard.VaultBucket{VaultIndex: index, Owner: owner.Bytes(), Amount: bucket.StakedAmount.Bytes()}, &recovery.BucketGuardV2, new(big.Int), new(big.Int))
+		if e != nil {
+			return log, nil, e
+		}
+		grant, nextV2, err = engine.AuthorizeStakingV2(env, op)
+	} else {
+		grant, err = bucketguard.VerifyOp(bucketguard.ParamsV1(), guardDomain(ctx), owner, cur, op)
+	}
 	if err != nil {
 		return log, nil, guardReceiptError(err)
 	}
@@ -530,6 +554,15 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 		}
 	} else {
 		next = &bucketguard.Guard{Generation: cur.Generation, Nonce: cur.Nonce + 1}
+	}
+	if nextV2 != nil && !deleted {
+		next = &bucketguard.Guard{AlgID: nextV2.AlgID, PublicKey: nextV2.PublicKey, Generation: nextV2.Generation, Nonce: nextV2.GuardNonce, BoundHeight: nextV2.BoundHeight}
+		if err := putBucketGuard(csm.SM(), index, next); err != nil {
+			return log, nil, err
+		}
+		if _, err := csm.SM().PutState(&BucketGuardV2Record{*nextV2}, vaultStateOptions(vaultKey(_stakingGuardV2, index))...); err != nil {
+			return log, nil, err
+		}
 	}
 	addBucketGuardEvent(log, index, uint32(op.Op), next, actionCtx.Caller, counterparty)
 	return log, tLogs, nil

@@ -341,6 +341,12 @@ func newStakingActionFromABIBinary(data []byte, value *big.Int) (actionPayload, 
 	if act, err := NewSetVoterRewardOptInFromABIBinary(data); err == nil {
 		return act, nil
 	}
+	if act, err := NewVaultActionFromABIBinary(data); err == nil {
+		if value != nil && value.Sign() != 0 {
+			return nil, ErrInvalidAct
+		}
+		return act, nil
+	}
 	if act, err := NewBindBucketGuardFromABIBinary(data); err == nil {
 		return act, nil
 	}

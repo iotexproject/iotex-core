@@ -1,6 +1,7 @@
 package bucketguard
 
 import (
+	"math/big"
 	"slices"
 
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
@@ -70,4 +71,12 @@ func (p Params) acceptsSigSize(n int) bool {
 
 func (p Params) gas(size int, verifications uint64) uint64 {
 	return p.GasBase + p.GasPerByte*uint64(size) + verifications*p.GasPerVerify
+}
+
+// VaultParams contains the configurable Draft 5 parameters in Rau.
+type VaultParams struct{ MinVaultBalance *big.Int }
+
+// ParamsV2 defaults to the native staking minimum of 100 IOTX.
+func ParamsV2() VaultParams {
+	return VaultParams{new(big.Int).Mul(big.NewInt(100), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))}
 }

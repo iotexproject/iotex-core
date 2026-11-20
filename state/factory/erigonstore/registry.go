@@ -109,6 +109,9 @@ func init() {
 	// in Erigon databases created before it, since system contracts are only
 	// deployed at genesis.
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.BucketGuardRecord{}, BucketPoolContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.VaultBucketRecord{}, BucketPoolContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.BucketGuardV2Record{}, BucketPoolContractIndex))
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.VaultMetaRecord{}, BucketPoolContractIndex))
 }
 
 // GetObjectStorageRegistry returns the global object storage registry

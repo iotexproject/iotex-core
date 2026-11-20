@@ -22,6 +22,10 @@ func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 		return newCandidateByIDStateContext(data[4:])
 	case hex.EncodeToString(_candidateDeactivationMethod.ID):
 		return newCandidateDeactivationStateContext(data[4:])
+	case hex.EncodeToString(vaultGetter.ID):
+		return newVaultStateContext(&vaultGetter, data[4:])
+	case hex.EncodeToString(stakingGuardGetter.ID):
+		return newVaultStateContext(&stakingGuardGetter, data[4:])
 	case hex.EncodeToString(_bucketGuardMethod.ID):
 		return newBucketGuardStateContext(data[4:])
 	default:

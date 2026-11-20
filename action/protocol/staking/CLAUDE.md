@@ -88,7 +88,8 @@ views — unpack via the `candidateDeactivation(address)` view (added in
 - `_const = 0`, `_bucket = 1`, `_voterIndex = 2`, `_candIndex = 3`,
   `_endorsement = 4`, `_candidateRewardSnapshot = 5` (`protocol.go`);
   `contractstaking.LSDVoterIndexPrefix = 6`; `eracow.ControlPrefix = 7`,
-  `eracow.EntryPrefix = 8`; `_bucketGuard = 9` (`protocol.go`).
+  `eracow.EntryPrefix = 8`; `_bucketGuard = 9`; Draft 5 `_vaultBucket = 10`,
+  `_vaultGuard = 11`, `_vaultMeta = 12`, `_stakingGuardV2 = 13` (`protocol.go`).
   Adding a new state type means adding a tag in `protocol.go` — review for
   collisions. Tags are declared in more than one package, so a new tag must
   not be "the next iota" without checking the others; `TestProtocol` pins

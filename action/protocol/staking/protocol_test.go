@@ -44,6 +44,10 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(7), eracow.ControlPrefix)
 	r.Equal(byte(8), eracow.EntryPrefix)
 	r.Equal(byte(9), _bucketGuard)
+	r.Equal(byte(10), _vaultBucket)
+	r.Equal(byte(11), _vaultGuard)
+	r.Equal(byte(12), _vaultMeta)
+	r.Equal(byte(13), _stakingGuardV2)
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)

@@ -111,7 +111,10 @@ type actPool struct {
 	accountDesActs *destinationMap
 	allActions     *ttl.Cache
 	gasInPool      uint64
-	isBlackListed  func(addr string, height uint64) bool
+	// admissionGas retains the charge before TX_CONTAINER unfolding mutates
+	// the pooled envelope's payload and intrinsic gas.
+	admissionGas  sync.Map // hash.Hash256 -> uint64
+	isBlackListed func(addr string, height uint64) bool
 	// actionEnvelopeValidators are the validators that are used in both actpool.Add and actpool.Validate
 	// TODO: can combine with privateValidators after NOT use actpool to call generic_validator in block validate
 	actionEnvelopeValidators []action.SealedEnvelopeValidator
@@ -510,6 +513,10 @@ func (ap *actPool) removeInvalidActs(acts []*action.SealedEnvelope) {
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		ap.allActions.Delete(hash)
 		intrinsicGas, err := act.IntrinsicGas()
+		if admitted, ok := ap.admissionGas.LoadAndDelete(hash); ok {
+			intrinsicGas = admitted.(uint64)
+			err = nil
+		}
 		if err != nil {
 			log.L().Debug("Skipping gas update due to intrinsic gas error", zap.Error(err))
 		} else {

@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto/signer"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -245,6 +246,11 @@ func TestGuardedOpVerifiesBeforeWriting(t *testing.T) {
 			run := func(k *signer.PrivateKey) (error, int, protocol.StateManager, CandidateStateManager, map[string]string) {
 				sm, p, _, _ := initTestStateWithHeight(t, ctrl, []*bucketConfig{tc.bucket}, cands, 10)
 				cur := guardBucket(t, sm, 0, guardKey, 1, 0)
+				if tc.op.Op == bucketguard.OpWithdraw {
+					_, err := sm.PutState(&BucketGuardV2Record{BucketGuardV2: bucketguard.BucketGuardV2{BucketClass: bucketguard.ClassBStaking, AlgID: cur.AlgID, PublicKey: cur.PublicKey, Generation: cur.Generation, GuardNonce: cur.Nonce, NextRequestID: 1, BoundHeight: cur.BoundHeight, UnbindDelay: bucketguard.UnbindDelayBlocks}}, vaultStateOptions(vaultKey(_stakingGuardV2, 0))...)
+					r.NoError(err)
+				}
+
 				counted := &writeCountingSM{StateManager: sm}
 				csm, err := NewCandidateStateManagerWithContext(ctx, counted)
 				r.NoError(err)
@@ -272,6 +278,8 @@ func TestGuardedOpVerifiesBeforeWriting(t *testing.T) {
 			r.NoError(err)
 			if tc.op.Op == bucketguard.OpWithdraw {
 				r.Nil(g, "withdraw deletes the guard record")
+				_, err := ReadStakingGuardV2(sm, 0)
+				r.ErrorIs(err, state.ErrStateNotExist)
 			} else {
 				r.Equal(uint64(1), g.Nonce)
 			}

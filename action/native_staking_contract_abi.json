@@ -1113,5 +1113,439 @@
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "type": "function",
+    "name": "vaultCreate",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "name": "ownerTxNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "algID",
+        "type": "uint32"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "name": "acceptSig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultAddDeposit",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultWithdraw",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultRotateOwner",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "newOwner",
+        "type": "address"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultRotateGuard",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "algID",
+        "type": "uint32"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "name": "acceptSig",
+        "type": "bytes"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultRevokeSignatures",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultInitiateExit",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultCancelExit",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultFinalizeExit",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "guardUnbindInitiate",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "guardUnbindFinalize",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "guardUnbindCancel",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "requestID",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "bindBucketGuardV2",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "unbindDelay",
+        "type": "uint64"
+      },
+      {
+        "name": "algID",
+        "type": "uint32"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "name": "acceptSig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultBucket",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "name": "guardRecord",
+        "type": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "stakingGuardV2",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "guardRecord",
+        "type": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "VaultTransition",
+    "inputs": [
+      {
+        "name": "operation",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "index",
+        "type": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "bucketClass",
+        "type": "uint32",
+        "indexed": false
+      },
+      {
+        "name": "generation",
+        "type": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "nextRequestID",
+        "type": "uint64",
+        "indexed": false
+      }
+    ]
   }
 ]
