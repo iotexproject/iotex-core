@@ -22,6 +22,10 @@ import (
 const (
 	unicaseTimeout = time.Second
 	batchPeerSize  = 2
+	// maxRequestAttempts bounds how many times one hash is requested from
+	// neighbors before it is dropped from the pending set, so hashes that never
+	// resolve cannot hold their slots forever.
+	maxRequestAttempts = 12
 )
 
 type (
@@ -44,6 +48,7 @@ type (
 
 	actionMsg struct {
 		lastTime time.Time
+		attempts int
 	}
 )
 
@@ -144,20 +149,31 @@ func (as *ActionSync) sync() {
 		case hash := <-as.syncChan:
 			log.L().Debug("syncing action", log.Hex("hash", hash[:]))
 			channelFullnessMtc.WithLabelValues("action").Set(float64(len(as.syncChan)) / float64(cap(as.syncChan)))
-			ctx, cancel := context.WithTimeout(context.Background(), unicaseTimeout)
-			defer cancel()
 			msg, ok := as.actions.Load(hash)
 			if !ok {
 				log.L().Debug("action not requested or already received", log.Hex("hash", hash[:]))
 				continue
 			}
-			if time.Since(msg.(*actionMsg).lastTime) < as.cfg.Interval {
+			am := msg.(*actionMsg)
+			if time.Since(am.lastTime) < as.cfg.Interval {
 				log.L().Debug("action is recently requested", log.Hex("hash", hash[:]))
 				continue
 			}
-			msg.(*actionMsg).lastTime = time.Now()
+			if am.attempts >= maxRequestAttempts {
+				if as.actions.CompareAndDelete(hash, msg) {
+					as.pending.Add(-1)
+					counterMtc.WithLabelValues("expired").Inc()
+					log.L().Debug("action request expired", log.Hex("hash", hash[:]))
+				}
+				continue
+			}
+			am.lastTime = time.Now()
+			am.attempts++
 			// TODO: enhancement, request multiple actions in one message
-			if err := as.requestFromNeighbors(ctx, hash); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), unicaseTimeout)
+			err := as.requestFromNeighbors(ctx, hash)
+			cancel()
+			if err != nil {
 				log.L().Warn("Failed to request action from neighbors", zap.Error(err))
 				counterMtc.WithLabelValues("failed").Inc()
 			}

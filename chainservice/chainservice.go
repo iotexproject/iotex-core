@@ -47,6 +47,12 @@ import (
 )
 
 var (
+	_stalledTipMtc = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "iotex_chainservice_stalled_tip_ticks",
+			Help: "Consecutive observation ticks with a static tip and changing unvalidated inbound block height; not a restart signal.",
+		},
+	)
 	_blockchainFullnessMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_blockchain_fullness",
@@ -58,6 +64,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(_blockchainFullnessMtc)
+	prometheus.MustRegister(_stalledTipMtc)
 }
 
 // ChainService is a blockchain service with all blockchain components.
@@ -97,27 +104,47 @@ func (cs *ChainService) Start(ctx context.Context) error {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 
-		var lastHeight uint64
-		var lastReceivedBlockHeight uint64
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if cs.paused.Load() {
-					continue
-				}
-				currentHeight := cs.chain.TipHeight()
-				lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
-				if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
-					log.L().Panic("Blockchain height has not changed, restarting service")
-				}
-				lastHeight = currentHeight
-				lastReceivedBlockHeight = lrbh
-			}
-		}
+		cs.monitorChainProgress(ctx, ticker.C)
 	}()
 	return nil
+}
+
+// monitorChainProgress reports observations, not proof of a stuck node. Both
+// Filter and ReportFullness record unvalidated network input: a peer can change
+// that height during a genuine chain halt. Never terminate the process based on
+// this signal, or wire its metric directly to an automatic restart policy.
+// Warnings are limited to one per observation tick (one minute in production).
+func (cs *ChainService) monitorChainProgress(ctx context.Context, ticks <-chan time.Time) {
+	_stalledTipMtc.Set(0)
+
+	var lastHeight uint64
+	var lastReceivedBlockHeight uint64
+	var stalledTicks int
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticks:
+			if cs.paused.Load() {
+				continue
+			}
+			currentHeight := cs.chain.TipHeight()
+			lrbh := atomic.LoadUint64(&cs.lastReceivedBlockHeight)
+			if currentHeight == lastHeight && lastReceivedBlockHeight != lrbh {
+				stalledTicks++
+				_stalledTipMtc.Set(float64(stalledTicks))
+				log.L().Warn("Blockchain tip is static while unvalidated inbound block height changes",
+					zap.Uint64("tipHeight", currentHeight),
+					zap.Uint64("unvalidatedReceivedHeight", lrbh),
+					zap.Int("consecutiveTicks", stalledTicks))
+			} else {
+				stalledTicks = 0
+				_stalledTipMtc.Set(0)
+			}
+			lastHeight = currentHeight
+			lastReceivedBlockHeight = lrbh
+		}
+	}
 }
 
 // Stop stops the server
@@ -138,15 +165,20 @@ func (cs *ChainService) Filter(messageType iotexrpc.MessageType, msg proto.Messa
 	if !ok || blk == nil || blk.Header == nil || blk.Header.Core == nil {
 		return false
 	}
-	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
-		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
-	}
 	tip, err := cs.blockdao.Height()
 	if err != nil {
 		log.L().Error("failed to get tip height from blockdao", zap.Error(err))
 		return true
 	}
-	return blk.Header.Core.Height < tip+uint64(cap)
+	if blk.Header.Core.Height >= tip+uint64(cap) {
+		return false
+	}
+	// Record accepted-window heights for observation only. The header remains
+	// unvalidated, so this is not evidence of chain progress or node failure.
+	if blk.Header.Core.Height > atomic.LoadUint64(&cs.lastReceivedBlockHeight) {
+		atomic.StoreUint64(&cs.lastReceivedBlockHeight, blk.Header.Core.Height)
+	}
+	return true
 }
 
 // ReportFullness switch on or off block sync

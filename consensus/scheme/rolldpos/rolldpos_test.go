@@ -92,6 +92,7 @@ func TestNewRollDPoS(t *testing.T) {
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
+		assert.True(t, r.ctx.(*rollDPoSCtx).startupAbstention, "producers sit out a height whose votes they lost")
 	})
 	t.Run("mock-clock", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)

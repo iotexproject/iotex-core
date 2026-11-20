@@ -752,8 +752,10 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(ctx, selp1))
-	// This execution should not be included in block because block is out of gas
-	elp2 := bd.SetAction(execution).
+	// This execution should not be included in block because block is out of gas.
+	// Build it from a new builder: Build returns the builder's own envelope, so
+	// reusing bd would also rewrite elp1's nonce.
+	elp2 := (&action.EnvelopeBuilder{}).SetAction(execution).
 		SetNonce(2).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()

@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"container/heap"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/v2/action"
 )
 
@@ -50,7 +52,7 @@ func (s *actionByPrice) Pop() interface{} {
 // ActionIterator define the interface of action iterator
 type ActionIterator interface {
 	Next() (*action.SealedEnvelope, bool)
-	PopAccount()
+	SkipAccount(sender address.Address)
 }
 
 type actionIterator struct {
@@ -102,9 +104,18 @@ func (ai *actionIterator) Next() (*action.SealedEnvelope, bool) {
 	return headAction, true
 }
 
-// PopAccount will remove all actions related to this account
-func (ai *actionIterator) PopAccount() {
-	if len(ai.heads) != 0 {
-		heap.Pop(&ai.heads)
+// SkipAccount removes the remaining actions of sender. Next may already have
+// put sender's next action in the heap, where it need not be on top, so it
+// is looked up rather than popped.
+func (ai *actionIterator) SkipAccount(sender address.Address) {
+	if sender == nil {
+		return
+	}
+	delete(ai.accountActs, sender.String())
+	for i := range ai.heads {
+		if address.Equal(ai.heads[i].SenderAddress(), sender) {
+			heap.Remove(&ai.heads, i)
+			return
+		}
 	}
 }
