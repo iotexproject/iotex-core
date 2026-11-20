@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/ioswarm"
@@ -57,6 +58,7 @@ func TestL4StressTest(t *testing.T) {
 		ShadowMode:     true,
 		PollIntervalMS: 500,
 		DiffBufferSize: 500, // larger buffer for stress test
+		MasterSecret:   "test-secret-l4-stress",
 		Reward:         ioswarm.DefaultRewardConfig(),
 	}
 
@@ -197,6 +199,10 @@ func TestL4StressTest(t *testing.T) {
 			time.Sleep(time.Duration(100*i) * time.Millisecond)
 
 			agentCtx, agentCancel := context.WithCancel(ctx)
+			agentCtx = metadata.AppendToOutgoingContext(agentCtx,
+				"x-ioswarm-agent-id", agent.agentID,
+				"x-ioswarm-token", ioswarm.DeriveAgentToken(cfg.IOSwarm.MasterSecret, agent.agentID),
+			)
 			defer agentCancel()
 
 			conn, err := grpc.NewClient(

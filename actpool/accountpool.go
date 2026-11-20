@@ -120,22 +120,53 @@ func (ap *accountPool) DeleteIfEmpty(addr string) {
 
 func (aq accountPriorityQueue) Len() int { return len(aq) }
 func (aq accountPriorityQueue) Less(i, j int) bool {
-	is, igp := aq[i].actQueue.NextAction()
-	js, jgp := aq[j].actQueue.NextAction()
-	if jgp == nil {
-		return true
-	}
-	if igp == nil {
-		return false
-	}
-	if !is && js {
-		return true
-	}
-	if !js && is {
-		return false
-	}
+	return newEvictionRank(aq[i].actQueue).less(newEvictionRank(aq[j].actQueue))
+}
 
-	return igp.Cmp(jgp) < 0
+// evictionRank is the per-account key that orders the account priority queue.
+// The account at the top of the queue (the "least" one) is the one whose
+// largest-nonce action is dropped first when the pool is full.
+type evictionRank struct {
+	hasNext bool
+	settled bool
+	gp      *big.Int
+	queued  int
+}
+
+func newEvictionRank(q ActQueue) evictionRank {
+	settled, gp := q.NextAction()
+	return evictionRank{
+		hasNext: gp != nil,
+		settled: settled,
+		gp:      gp,
+		queued:  q.NumQueuedActs(),
+	}
+}
+
+// less reports whether a should be evicted before b:
+//  1. an account with no action is never preferred for eviction
+//  2. an account holding more non-executable (queued) actions goes first, so
+//     actions that cannot be included in the next block are dropped before
+//     any executable one, regardless of the fee of the account's head action
+//  3. an account without an executable action goes before one with
+//  4. lower head gas fee cap goes first
+func (a evictionRank) less(b evictionRank) bool {
+	if !b.hasNext {
+		return true
+	}
+	if !a.hasNext {
+		return false
+	}
+	if a.queued != b.queued {
+		return a.queued > b.queued
+	}
+	if !a.settled && b.settled {
+		return true
+	}
+	if !b.settled && a.settled {
+		return false
+	}
+	return a.gp.Cmp(b.gp) < 0
 }
 
 func (aq accountPriorityQueue) Swap(i, j int) {

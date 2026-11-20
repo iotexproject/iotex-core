@@ -1654,3 +1654,97 @@ func TestWeb3MalformedParams(t *testing.T) {
 		require.Error(err)
 	})
 }
+
+func TestSubscribeLimitPerConnection(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := NewMockCoreService(ctrl)
+	cl := NewChainListener(1000)
+	core.EXPECT().ChainListener().Return(cl).AnyTimes()
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	web3svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+
+	ctx := WithStreamContext(context.Background())
+	var lastResp []byte
+	writer := apitypes.NewResponseWriter(func(resp interface{}) (int, error) {
+		lastResp, _ = json.Marshal(resp)
+		return 0, nil
+	})
+	call := func(body string) string {
+		require.NoError(web3svr.HandlePOSTReq(ctx, strings.NewReader(body), writer))
+		return string(lastResp)
+	}
+	subscribe := `{"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["newHeads"]}`
+
+	var ids []string
+	for i := 0; i < _maxSubscriptionsPerConnection; i++ {
+		resp := call(subscribe)
+		id := gjson.Get(resp, "result").String()
+		require.NotEmpty(id, resp)
+		ids = append(ids, id)
+	}
+	resp := call(subscribe)
+	require.Contains(resp, errTooManySubs.Error())
+
+	// unsubscribing frees a slot on this connection
+	resp = call(fmt.Sprintf(`{"jsonrpc":"2.0","id":2,"method":"eth_unsubscribe","params":["%s"]}`, ids[0]))
+	require.True(gjson.Get(resp, "result").Bool(), resp)
+	resp = call(subscribe)
+	require.NotEmpty(gjson.Get(resp, "result").String(), resp)
+
+	// the limit is per connection
+	ctx = WithStreamContext(context.Background())
+	resp = call(subscribe)
+	require.NotEmpty(gjson.Get(resp, "result").String(), resp)
+	for _, id := range append(ids, gjson.Get(resp, "result").String()) {
+		_, _ = cl.RemoveResponder(id)
+	}
+}
+
+func TestDroppedSubscriptionsFreeConnectionSlots(t *testing.T) {
+	for _, kind := range []string{"newHeads", "logs"} {
+		t.Run(kind, func(t *testing.T) {
+			r := require.New(t)
+			core := NewMockCoreService(gomock.NewController(t))
+			cl := NewChainListener(1000)
+			defer cl.Stop()
+			core.EXPECT().ChainListener().Return(cl).AnyTimes()
+			svr := &web3Handler{core, nil, _defaultBatchRequestLimit}
+			ctx, _ := StreamFromContext(WithStreamContext(context.Background()))
+			writer := apitypes.NewResponseWriter(func(interface{}) (int, error) {
+				return 0, errors.New("write failed")
+			})
+			request := gjson.Parse(fmt.Sprintf(`{"params":["%s",{}]}`, kind))
+			var senders []*streamSender
+			for range _maxSubscriptionsPerConnection {
+				id, err := svr.subscribe(ctx, &request, writer)
+				r.NoError(err)
+				responder, ok := cl.(*chainListener).streamMap.Get(id)
+				r.True(ok)
+				switch listener := responder.(type) {
+				case *web3BlockListener:
+					senders = append(senders, listener.sender)
+				case *web3LogListener:
+					senders = append(senders, listener.sender)
+				}
+			}
+			_, err := svr.subscribe(ctx, &request, writer)
+			r.ErrorIs(err, errTooManySubs)
+			// Fail asynchronously, without requiring another block to arrive.
+			for _, sender := range senders {
+				r.NoError(sender.enqueue(&streamResponse{}))
+				select {
+				case <-sender.closed:
+				case <-time.After(time.Second):
+					t.Fatal("sender did not report the write failure")
+				}
+			}
+			r.Zero(ctx.ListenerCount())
+			r.Empty(ctx.ListenerIDs())
+			r.Zero(cl.(*chainListener).streamMap.Count(), "pruning must also evict stopped responders")
+			_, err = svr.subscribe(ctx, &request, writer)
+			r.NoError(err, "dropped subscriptions must not exhaust the connection permanently")
+		})
+	}
+}

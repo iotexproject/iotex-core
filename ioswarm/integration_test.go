@@ -125,6 +125,7 @@ func TestIntegrationE2E(t *testing.T) {
 		reward:     NewRewardDistributor(DefaultRewardConfig(), "", logger),
 		logger:     logger,
 	}
+	coord.initBounds()
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

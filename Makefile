@@ -143,6 +143,7 @@ FUZZ_TARGETS := \
 	./crypto:FuzzSortCandidates \
 	./action:FuzzReceiptDeserialize \
 	./action:FuzzLogDeserialize \
+	./action:FuzzActionCoreLoadProto \
 	./state:FuzzAccountDeserialize \
 	./state:FuzzCandidateListDeserialize
 
