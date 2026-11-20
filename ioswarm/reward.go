@@ -218,8 +218,12 @@ func (r *RewardDistributor) computePayouts(totalReward *big.Int) *EpochSummary {
 		if totalWeight > 0 {
 			share = wa.weight / totalWeight
 			// amount = agentPool * share
-			amount.Mul(agentPool, big.NewInt(int64(wa.weight*1e9)))
-			amount.Div(amount, big.NewInt(int64(totalWeight*1e9)))
+			weight, _ := new(big.Float).SetFloat64(wa.weight * 1e9).Int(nil)
+			total, _ := new(big.Float).SetFloat64(totalWeight * 1e9).Int(nil)
+			if total.Sign() > 0 {
+				amount.Mul(agentPool, weight)
+				amount.Div(amount, total)
+			}
 		}
 
 		// Convert to IOTX for readability

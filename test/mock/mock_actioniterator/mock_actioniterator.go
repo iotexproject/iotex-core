@@ -12,6 +12,7 @@ package mock_actioniterator
 import (
 	reflect "reflect"
 
+	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/v2/action"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -55,14 +56,14 @@ func (mr *MockActionIteratorMockRecorder) Next() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockActionIterator)(nil).Next))
 }
 
-// PopAccount mocks base method.
-func (m *MockActionIterator) PopAccount() {
+// SkipAccount mocks base method.
+func (m *MockActionIterator) SkipAccount(sender address.Address) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "PopAccount")
+	m.ctrl.Call(m, "SkipAccount", sender)
 }
 
-// PopAccount indicates an expected call of PopAccount.
-func (mr *MockActionIteratorMockRecorder) PopAccount() *gomock.Call {
+// SkipAccount indicates an expected call of SkipAccount.
+func (mr *MockActionIteratorMockRecorder) SkipAccount(sender any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PopAccount", reflect.TypeOf((*MockActionIterator)(nil).PopAccount))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SkipAccount", reflect.TypeOf((*MockActionIterator)(nil).SkipAccount), sender)
 }

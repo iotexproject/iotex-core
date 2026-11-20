@@ -8,6 +8,7 @@ package action
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
@@ -171,4 +173,160 @@ func TestTxContainerCostIncludesBlobFee(t *testing.T) {
 	cost, err = (&txContainer{tx: tx}).Cost()
 	r.NoError(err)
 	r.Equal(big.NewInt(21000*10+5), cost)
+}
+
+const _roundTripEvmNetworkID = 4689
+
+type roundTripCase struct {
+	name  string
+	to    *common.Address
+	value *big.Int
+	data  []byte
+	ok    bool
+}
+
+// roundTripCases returns txs to the staking/rewarding protocol that do or do
+// not re-encode to themselves once unfolded, plus lossless non-system txs
+func roundTripCases(t *testing.T) []roundTripCase {
+	r := require.New(t)
+	unstake, err := NewUnstake(1, []byte("payload")).EthData()
+	r.NoError(err)
+	claim, err := NewClaimFromRewardingFund(big.NewInt(100), nil, nil).EthData()
+	r.NoError(err)
+	register, err := NewCandidateRegisterWithBLS("cand", identityset.Address(2).String(), identityset.Address(3).String(),
+		identityset.Address(1).String(), "1200000000000000000000000", 1, true, popTestPubKey(t), nil, nil)
+	r.NoError(err)
+	registerData, err := register.EthData()
+	r.NoError(err)
+	registerValue, _ := new(big.Int).SetString("1200000000000000000000000", 10)
+	var (
+		pad       = make([]byte, 32)
+		staking   = _stakingProtocolEthAddr
+		rewarding = _rewardingProtocolEthAddr
+		eoa       = common.BytesToAddress(identityset.Address(5).Bytes())
+		contract  = common.BytesToAddress(identityset.Address(6).Bytes())
+		trailing  = func(b []byte) []byte { return append(append([]byte{}, b...), pad...) }
+	)
+	return []roundTripCase{
+		{"unstake", &staking, big.NewInt(0), unstake, true},
+		{"unstake with trailing bytes", &staking, big.NewInt(0), trailing(unstake), false},
+		{"unstake with value", &staking, big.NewInt(1), unstake, false},
+		{"claim reward", &rewarding, big.NewInt(0), claim, true},
+		{"claim reward with trailing bytes", &rewarding, big.NewInt(0), trailing(claim), false},
+		{"claim reward with value", &rewarding, big.NewInt(1), claim, false},
+		{"candidate register with value", &staking, registerValue, registerData, true},
+		{"transfer with value and data", &eoa, big.NewInt(1), trailing(unstake), true},
+		{"execution with value and data", &contract, big.NewInt(1), trailing(claim), true},
+		{"contract creation", nil, big.NewInt(1), pad, true},
+	}
+}
+
+func signRoundTripTx(legacy bool, c roundTripCase) *types.Transaction {
+	sk := identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	if legacy {
+		return types.MustSignNewTx(sk, types.NewEIP155Signer(big.NewInt(_roundTripEvmNetworkID)), &types.LegacyTx{
+			Nonce: 1, GasPrice: big.NewInt(1), Gas: 100000, To: c.to, Value: c.value, Data: c.data,
+		})
+	}
+	return types.MustSignNewTx(sk, types.LatestSignerForChainID(big.NewInt(_roundTripEvmNetworkID)), &types.DynamicFeeTx{
+		ChainID: big.NewInt(_roundTripEvmNetworkID), Nonce: 1, GasTipCap: big.NewInt(1), GasFeeCap: big.NewInt(2),
+		Gas: 100000, To: c.to, Value: c.value, Data: c.data,
+	})
+}
+
+func containerProto(t *testing.T, tx *types.Transaction) *iotextypes.Action {
+	r := require.New(t)
+	raw, err := tx.MarshalBinary()
+	r.NoError(err)
+	_, sig, pubkey, err := ExtractTypeSigPubkey(tx)
+	r.NoError(err)
+	return &iotextypes.Action{
+		Core: &iotextypes.ActionCore{
+			ChainID: 1,
+			Action:  &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}},
+		},
+		SenderPubKey: pubkey.Bytes(),
+		Signature:    sig,
+		Encoding:     iotextypes.Encoding_TX_CONTAINER,
+	}
+}
+
+func TestTxContainerLoadProtoRoundTrip(t *testing.T) {
+	deser := (&Deserializer{}).SetEvmNetworkID(_roundTripEvmNetworkID)
+	for _, c := range roundTripCases(t) {
+		for _, legacy := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s legacy=%v", c.name, legacy), func(t *testing.T) {
+				r := require.New(t)
+				selp, err := deser.ActionToSealedEnvelope(containerProto(t, signRoundTripTx(legacy, c)))
+				if !c.ok {
+					r.ErrorIs(err, ErrInvalidAct)
+					r.ErrorContains(err, "unfolded action does not match the signed transaction")
+					return
+				}
+				r.NoError(err)
+				r.NoError(selp.VerifySignature())
+			})
+		}
+	}
+	t.Run("staking with undecodable data", func(t *testing.T) {
+		to := _stakingProtocolEthAddr
+		_, err := deser.ActionToSealedEnvelope(containerProto(t, signRoundTripTx(false, roundTripCase{to: &to, value: big.NewInt(0)})))
+		require.ErrorIs(t, err, ErrInvalidAct)
+	})
+}
+
+func TestTxContainerUnfoldRoundTrip(t *testing.T) {
+	deser := (&Deserializer{}).SetEvmNetworkID(_roundTripEvmNetworkID)
+	contract := common.BytesToAddress(identityset.Address(6).Bytes())
+	checker := func(_ context.Context, to *common.Address) (bool, bool, bool, error) {
+		if to == nil {
+			return true, false, false, nil
+		}
+		return *to == contract, *to == _stakingProtocolEthAddr, *to == _rewardingProtocolEthAddr, nil
+	}
+	for _, c := range roundTripCases(t) {
+		for _, legacy := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s legacy=%v", c.name, legacy), func(t *testing.T) {
+				r := require.New(t)
+				// build the envelope directly: LoadProto refuses lossy containers
+				tx := signRoundTripTx(legacy, c)
+				pb := containerProto(t, tx)
+				pubkey, err := crypto.BytesToPublicKey(pb.SenderPubKey)
+				r.NoError(err)
+				selp := &SealedEnvelope{
+					Envelope:     &txContainer{chainID: 1, raw: pb.Core.GetTxContainer().Raw, tx: tx},
+					encoding:     iotextypes.Encoding_TX_CONTAINER,
+					evmNetworkID: _roundTripEvmNetworkID,
+					srcPubkey:    pubkey,
+					signature:    pb.Signature,
+				}
+				h, err := selp.Hash()
+				r.NoError(err)
+				sender := selp.SenderAddress().String()
+				container := selp.Envelope.(TxContainer)
+
+				err = container.Unfold(selp, context.Background(), checker)
+				if !c.ok {
+					r.ErrorIs(err, ErrInvalidAct)
+					r.ErrorContains(err, "unfolded action does not match the signed transaction")
+					// selp is left untouched
+					r.Equal(container, selp.Envelope)
+					r.EqualValues(iotextypes.Encoding_TX_CONTAINER, selp.Encoding())
+					h2, err := selp.Hash()
+					r.NoError(err)
+					r.Equal(h, h2)
+					return
+				}
+				r.NoError(err)
+				// the unfolded action is what a block stores; it must decode back
+				// to the same sender and hash
+				unfolded, err := deser.ActionToSealedEnvelope(selp.Proto())
+				r.NoError(err)
+				r.Equal(sender, unfolded.SenderAddress().String())
+				h2, err := unfolded.Hash()
+				r.NoError(err)
+				r.Equal(h, h2)
+			})
+		}
+	}
 }

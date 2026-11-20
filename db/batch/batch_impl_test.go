@@ -76,6 +76,21 @@ func TestBaseKVStoreBatch(t *testing.T) {
 	bb.Put("bb", []byte("bbkey2"), []byte("bbvalue2"), "")
 	b.Append(bb)
 	require.Equal(4, b.Size())
+	for i, k := range [][]byte{[]byte("bbkey"), []byte("bbkey2")} {
+		wi, err := b.Entry(2 + i)
+		require.NoError(err)
+		require.Equal("bb", wi.Namespace())
+		require.Equal(k, wi.Key())
+	}
+	// appending a batch larger than the receiver
+	b.Clear()
+	b.Put("ns", []byte("k"), []byte("v"), "")
+	bb.Put("bb", []byte("bbkey3"), []byte("bbvalue3"), "")
+	b.Append(bb)
+	require.Equal(4, b.Size())
+	wi, err = b.Entry(3)
+	require.NoError(err)
+	require.Equal([]byte("bbkey3"), wi.Key())
 	b.Clear()
 	require.Equal(0, b.Size())
 }

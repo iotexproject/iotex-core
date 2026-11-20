@@ -72,6 +72,8 @@ func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
+	// same bound as a websocket message
+	req.Body = http.MaxBytesReader(w, req.Body, maxMessageSize)
 	ctx, span := tracer.NewSpan(req.Context(), "http")
 	defer span.End()
 	acquireCtx, cancel := context.WithTimeout(ctx, 10*time.Second)

@@ -142,7 +142,9 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 // LoadProto loads candidate list from proto
 func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 	candidates := make(CandidateList, 0)
-	candidatesPb := candList.Candidates
+	// candList may be nil (e.g. a putPollResult without candidates); treat it
+	// as an empty list.
+	candidatesPb := candList.GetCandidates()
 	for _, candPb := range candidatesPb {
 		cand, err := pbToCandidate(candPb)
 		if err != nil {

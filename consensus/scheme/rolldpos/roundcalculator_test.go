@@ -271,5 +271,6 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 		delegatesByEpoch,
 		delegatesByEpoch,
 		0,
+		true,
 	}
 }
