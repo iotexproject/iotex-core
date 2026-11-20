@@ -15,7 +15,9 @@ import (
 	"testing"
 	"time"
 
+	libcommon "github.com/erigontech/erigon-lib/common"
 	erigonstate "github.com/erigontech/erigon/core/state"
+	"github.com/erigontech/erigon/core/types/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -60,6 +62,44 @@ func TestNewSlotReaderSupportsErigonValidationWorkingSet(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.IsType(t, &ErigonStateDBAdapter{}, reader.db)
+}
+
+type emptyErigonStateReader struct{}
+
+func (emptyErigonStateReader) ReadAccountData(libcommon.Address) (*accounts.Account, error) {
+	return nil, nil
+}
+
+func (emptyErigonStateReader) ReadAccountStorage(libcommon.Address, uint64, *libcommon.Hash) ([]byte, error) {
+	return nil, nil
+}
+
+func (emptyErigonStateReader) ReadAccountCode(libcommon.Address, uint64, libcommon.Hash) ([]byte, error) {
+	return nil, nil
+}
+
+func (emptyErigonStateReader) ReadAccountCodeSize(libcommon.Address, uint64, libcommon.Hash) (int, error) {
+	return 0, nil
+}
+
+func (emptyErigonStateReader) ReadAccountIncarnation(libcommon.Address) (uint64, error) {
+	return 0, nil
+}
+
+func TestErigonStateDBAdapterSelfDestruct6780(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(t, err)
+	stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, EnableCancunEVMOption())
+	require.NoError(t, err)
+	intra := erigonstate.New(emptyErigonStateReader{})
+	var state vm.StateDB = NewErigonStateDBAdapter(stateDB, intra)
+	addr := common.HexToAddress("0x1234")
+
+	state.CreateAccount(addr)
+	_, destroyed := state.SelfDestruct6780(addr)
+	require.True(t, destroyed)
+	require.True(t, intra.HasSelfdestructed(libcommon.Address(addr)))
 }
 
 func TestExecuteContractFailure(t *testing.T) {
