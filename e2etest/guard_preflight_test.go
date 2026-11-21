@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
-	"github.com/iotexproject/iotex-core/v2/actpool"
 	"github.com/iotexproject/iotex-core/v2/api"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -35,50 +34,9 @@ import (
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
 
-// blockActionSource feeds the proposer directly, bypassing local admission.
-// Failure receipts are consensus execution tests, even when local policy now
-// refuses the same action. Block validation still runs its normal checks.
-type blockActionSource struct {
-	actpool.ActPool
-	acts map[string][]*action.SealedEnvelope
-}
-
-func (s blockActionSource) PendingActionMap() map[string][]*action.SealedEnvelope { return s.acts }
-
 func (f *guardFixture) packDirect(t *testing.T, tx *actionWithTime) (*action.SealedEnvelope, *action.Receipt, *block.Block, error) {
 	t.Helper()
-	bc, sf := f.test.cs.Blockchain(), f.test.cs.StateFactory()
-	ctx, err := bc.Context(context.Background())
-	if err != nil {
-		return tx.act, nil, nil, err
-	}
-	tip := protocol.MustGetBlockchainCtx(ctx).Tip
-	pk := f.test.cfg.Chain.ProducerPrivateKeys()[0]
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: tip.Height + 1, BlockTimeStamp: tx.t,
-		Producer: pk.PublicKey().Address(), GasLimit: f.test.cfg.Genesis.BlockGasLimitByHeight(tip.Height + 1),
-		BaseFee:       protocol.CalcBaseFee(f.test.cfg.Genesis.Blockchain, &tip),
-		ExcessBlobGas: protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed),
-	}))
-	blk, err := sf.Mint(ctx, blockActionSource{ActPool: f.test.cs.ActionPool(), acts: map[string][]*action.SealedEnvelope{tx.act.SenderAddress().String(): {tx.act}}}, pk)
-	if err != nil {
-		return tx.act, nil, nil, err
-	}
-	require.NoError(t, bc.ValidateBlock(blk))
-	if err := bc.CommitBlock(blk); err != nil {
-		return tx.act, nil, blk, err
-	}
-	f.test.cs.ActionPool().Reset()
-	h, err := tx.act.Hash()
-	if err != nil {
-		return tx.act, nil, blk, err
-	}
-	for _, r := range blk.Receipts {
-		if r.ActionHash == h {
-			return tx.act, r, blk, nil
-		}
-	}
-	return tx.act, nil, blk, errReceiptNotFound
+	return f.test.packDirect(t, tx)
 }
 
 // Guard protocol tests exercise the real RPC handlers through an in-memory

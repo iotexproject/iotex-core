@@ -137,7 +137,7 @@ func (e *e2etest) runCase(ctx context.Context, c *testcase) {
 		var blk *block.Block
 		var err error
 		if c.direct {
-			act, receipt, blk, err = (&guardFixture{test: e}).packDirect(e.t, c.act)
+			act, receipt, blk, err = e.packDirect(e.t, c.act)
 		} else {
 			act, receipt, blk, err = addOneTx(ctx, ap, bc, c.act)
 		}
@@ -160,6 +160,52 @@ func (e *e2etest) teardown() {
 	require.NoError(e.svr.Stop(context.Background()))
 	// clean up
 	clearDBPaths(&e.cfg)
+}
+
+// blockActionSource feeds the proposer directly, bypassing local admission.
+// Failure receipts are consensus execution tests, even when local policy now
+// refuses the same action. Block validation still runs its normal checks.
+type blockActionSource struct {
+	actpool.ActPool
+	acts map[string][]*action.SealedEnvelope
+}
+
+func (s blockActionSource) PendingActionMap() map[string][]*action.SealedEnvelope { return s.acts }
+
+func (e *e2etest) packDirect(t *testing.T, tx *actionWithTime) (*action.SealedEnvelope, *action.Receipt, *block.Block, error) {
+	t.Helper()
+	bc, sf := e.cs.Blockchain(), e.cs.StateFactory()
+	ctx, err := bc.Context(context.Background())
+	if err != nil {
+		return tx.act, nil, nil, err
+	}
+	tip := protocol.MustGetBlockchainCtx(ctx).Tip
+	pk := e.cfg.Chain.ProducerPrivateKeys()[0]
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: tip.Height + 1, BlockTimeStamp: tx.t,
+		Producer: pk.PublicKey().Address(), GasLimit: e.cfg.Genesis.BlockGasLimitByHeight(tip.Height + 1),
+		BaseFee:       protocol.CalcBaseFee(e.cfg.Genesis.Blockchain, &tip),
+		ExcessBlobGas: protocol.CalcExcessBlobGas(tip.ExcessBlobGas, tip.BlobGasUsed),
+	}))
+	blk, err := sf.Mint(ctx, blockActionSource{ActPool: e.cs.ActionPool(), acts: map[string][]*action.SealedEnvelope{tx.act.SenderAddress().String(): {tx.act}}}, pk)
+	if err != nil {
+		return tx.act, nil, nil, err
+	}
+	require.NoError(t, bc.ValidateBlock(blk))
+	if err := bc.CommitBlock(blk); err != nil {
+		return tx.act, nil, blk, err
+	}
+	e.cs.ActionPool().Reset()
+	h, err := tx.act.Hash()
+	if err != nil {
+		return tx.act, nil, blk, err
+	}
+	for _, r := range blk.Receipts {
+		if r.ActionHash == h {
+			return tx.act, r, blk, nil
+		}
+	}
+	return tx.act, nil, blk, errReceiptNotFound
 }
 
 func (e *e2etest) withTest(t *testing.T) *e2etest {
