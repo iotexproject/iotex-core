@@ -355,6 +355,10 @@ type compoundFixture struct {
 }
 
 func newCompoundFixture(t *testing.T) compoundFixture {
+	return newCompoundFixtureWithVoters(t, 1)
+}
+
+func newCompoundFixtureWithVoters(t *testing.T, voters int) compoundFixture {
 	t.Helper()
 	r := require.New(t)
 	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
@@ -371,7 +375,7 @@ func newCompoundFixture(t *testing.T) compoundFixture {
 	r.NoError(err)
 	delegates, err := staking.TestOnlySeedPerfBenchState(ctx, csm, staking.TestOnlyPerfBenchSpec{
 		NumDelegates:            1,
-		NumVoters:               1,
+		NumVoters:               voters,
 		DelegateSelfStake:       big.NewInt(1_000_000),
 		VoterStake:              big.NewInt(1_000),
 		VoterStakedDurationDays: 30,

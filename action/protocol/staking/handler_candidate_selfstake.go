@@ -31,6 +31,10 @@ func (p *Protocol) handleCandidateActivate(ctx context.Context, act *action.Cand
 	if rErr != nil {
 		return log, nil, rErr
 	}
+	// a guarded bucket must never become a self-stake bucket (IIP §3)
+	if err := p.rejectGuardedBucket(ctx, csm, act.BucketID()); err != nil {
+		return log, nil, err
+	}
 	// caller must be the owner of a candidate
 	cand := csm.GetByOwner(actCtx.Caller)
 	if cand == nil {

@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
+	"github.com/iotexproject/iotex-core/v2/state"
 )
 
 // ErrCompoundBucketOwnerMismatch is returned when the bucket's owner does not
@@ -34,6 +36,9 @@ var ErrCompoundBucketOwnerMismatch = errors.New(
 // the voter's reward destination, exactly as it does for an ineligible bucket.
 var ErrCompoundSelfStakeRoleChanged = errors.New(
 	"staking: compound bucket self-stake role changed since the era freeze")
+
+// ErrCompoundSkippedPendingUnbind requests direct reward payment while Class B recovery is pending.
+var ErrCompoundSkippedPendingUnbind = errors.New("staking: compound skipped for pending guard unbind")
 
 // AddDepositForCompound applies an IIP-59 §3.6 compound deposit into voter's
 // registered AutoDeposit bucket. It is the rewarding-side counterpart to
@@ -84,6 +89,13 @@ func (p *Protocol) AddDepositForCompound(
 		return errors.New("staking: non-positive compound amount")
 	}
 
+	// Pending recovery freezes automatic deposits; rewards stay with the
+	// rewarding caller, which routes the sentinel to direct payment.
+	if pending, err := PendingGuardUnbind(ctx, sm, bucketID); err != nil {
+		return err
+	} else if pending {
+		return ErrCompoundSkippedPendingUnbind
+	}
 	csm, err := NewCandidateStateManagerWithContext(ctx, sm)
 	if err != nil {
 		return errors.Wrap(err, "staking: build csm for compound")
@@ -129,7 +141,7 @@ func (p *Protocol) AddDepositForCompound(
 
 	prevWeighted := p.calculateVoteWeight(bucket, selfStake)
 	bucket.StakedAmount = new(big.Int).Add(bucket.StakedAmount, amount)
-	if err := csm.updateBucket(bucketID, bucket); err != nil {
+	if err := csm.updateBucket(bucketID, bucket, legacyAuth); err != nil {
 		return errors.Wrapf(err, "staking: update compound bucket %d", bucketID)
 	}
 
@@ -153,4 +165,19 @@ func (p *Protocol) AddDepositForCompound(
 		return errors.Wrap(err, "staking: debit bucket pool for compound")
 	}
 	return nil
+}
+
+// PendingGuardUnbind reports whether Class B recovery freezes compounding.
+func PendingGuardUnbind(ctx context.Context, sr protocol.StateReader, index uint64) (bool, error) {
+	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
+		return false, nil
+	}
+	g, err := ReadStakingGuardV2(sr, index)
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return g.BucketClass == bucketguard.ClassBStaking && g.Pending != nil, nil
 }

@@ -69,6 +69,21 @@ const (
 	_candidateRewardSnapshot
 )
 
+// _bucketGuard is the tag for the quantum-safe guard record of a native
+// bucket (bucket_guard.go). Full key: {_bucketGuard} || uint64_be(index).
+// It is not the next iota value: 6 is contractstaking.LSDVoterIndexPrefix and
+// 7-8 are eracow.ControlPrefix/EntryPrefix, all in the same namespace, and
+// each tag holds one record type.
+const _bucketGuard = byte(9)
+
+// Draft 5 records are isolated from deployed vote buckets and Draft 4 guards.
+const (
+	_vaultBucket    byte = 10
+	_vaultGuard     byte = 11
+	_vaultMeta      byte = 12
+	_stakingGuardV2 byte = 13
+)
+
 // Errors
 var (
 	ErrWithdrawnBucket      = errors.New("the bucket is already withdrawn")
@@ -546,7 +561,7 @@ func (p *Protocol) slashCandidate(
 		return errors.Errorf("amount %s is greater than staked amount %s", amount.String(), bucket.StakedAmount.String())
 	}
 	bucket.StakedAmount.Sub(bucket.StakedAmount, amount)
-	if err := csm.updateBucket(bucket.Index, bucket); err != nil {
+	if err := csm.updateBucket(bucket.Index, bucket, legacyAuth); err != nil {
 		return errors.Wrapf(err, "failed to update bucket %d", bucket.Index)
 	}
 	if err := candidate.SubVote(prevWeightedVotes); err != nil {
@@ -914,6 +929,24 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		}
 	case *action.SetVoterRewardOptIn:
 		rLog, tLogs, err = p.handleSetVoterRewardOptIn(ctx, act, csm)
+	case *action.VaultAction:
+		if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
+			return nil, errors.Wrap(action.ErrInvalidAct, "bucket guard disabled")
+		}
+		if err := checkGuardEnvelope(elp); err != nil {
+			return nil, err
+		}
+		rLog, tLogs, err = p.handleVaultAction(ctx, act, csm)
+	case *action.BindBucketGuard:
+		if err := checkGuardEnvelope(elp); err != nil {
+			return nil, err
+		}
+		rLog, tLogs, err = p.handleBindBucketGuard(ctx, act, csm)
+	case *action.GuardedBucketOp:
+		if err := checkGuardEnvelope(elp); err != nil {
+			return nil, err
+		}
+		rLog, tLogs, err = p.handleGuardedBucketOp(ctx, act, csm)
 	default:
 		return nil, nil
 	}
@@ -960,7 +993,11 @@ func (p *Protocol) handle(ctx context.Context, elp action.Envelope, csm Candidat
 		// fresh snapshot on the restored state and settling against that. That
 		// is the shape that has gone wrong before, and it would be added to a
 		// reachable path to cover a failure that is not reachable at all.
-		return p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
+		receipt, settleErr := p.settleAction(ctx, csm.SM(), elp, receiptErr.ReceiptStatus(), logs, tLogs, gasConsumed, gasToBeDeducted, nonceUpdateOption, isSystemAction)
+		if _, ok := elp.Action().(*action.VaultAction); ok && receipt != nil {
+			receipt.SetExecutionRevertMsg(err.Error())
+		}
+		return receipt, settleErr
 	}
 	// A non-receipt error abandons the block being built or validated, so the
 	// rollback is not what makes the caller safe. It is taken anyway to leave
@@ -1066,6 +1103,12 @@ func (p *Protocol) Validate(ctx context.Context, elp action.Envelope, sr protoco
 		return p.validateCandidateDeactivate(ctx, act)
 	case *action.SetVoterRewardOptIn:
 		return p.validateSetVoterRewardOptIn(ctx, act)
+	case *action.VaultAction:
+		return p.validateBindBucketGuard(ctx, elp)
+	case *action.BindBucketGuard:
+		return p.validateBindBucketGuard(ctx, elp)
+	case *action.GuardedBucketOp:
+		return p.validateGuardedBucketOp(ctx, elp, act)
 	}
 	return nil
 }
@@ -1138,6 +1181,9 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 
 // ReadState read the state on blockchain via protocol
 func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
+	if string(method) == "vaultBucket" || string(method) == "stakingGuardV2" {
+		return p.readVaultState(ctx, sr, string(method), args...)
+	}
 	m := iotexapi.ReadStakingDataMethod{}
 	if err := proto.Unmarshal(method, &m); err != nil {
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal method name")
@@ -1233,6 +1279,9 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp, height, err = stakeSR.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
 	case iotexapi.ReadStakingDataMethod_CONTRACT_STAKING_BUCKET_TYPES:
 		resp, height, err = stakeSR.readStateContractStakingBucketTypes(ctx, r.GetContractStakingBucketTypes())
+	case iotexapi.ReadStakingDataMethod_BUCKET_GUARD:
+		resp, err = readStateBucketGuard(sr, r.GetBucketGuard())
+		height = inputHeight
 	default:
 		err = errors.New("corresponding method isn't found")
 	}

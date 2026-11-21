@@ -145,7 +145,10 @@ FUZZ_TARGETS := \
 	./action:FuzzLogDeserialize \
 	./action:FuzzActionCoreLoadProto \
 	./state:FuzzAccountDeserialize \
-	./state:FuzzCandidateListDeserialize
+	./state:FuzzCandidateListDeserialize \
+	./action/protocol/staking/bucketguard:FuzzVaultActionFromEthData \
+	./action/protocol/staking/bucketguard:FuzzVaultRecordDeserialize \
+	./action/protocol/staking/bucketguard:FuzzGuardedBucketOpFromEthData
 
 .PHONY: fuzz-short
 fuzz-short:

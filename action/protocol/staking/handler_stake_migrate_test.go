@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/assertions"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
@@ -275,6 +276,11 @@ func TestHandleStakeMigrate(t *testing.T) {
 		r.ErrorContains(errs[1], "execution failed error")
 	})
 	t.Run("success", func(t *testing.T) {
+		// Activate the Draft 5 cleanup for this migration only.
+		cfg := genesis.MustExtractGenesisContext(ctx)
+		cfg.ToBeEnabledBlockHeight = 1
+		cfg.ZanzibarGammaBlockHeight = 1
+		ctx := genesis.WithGenesisContext(ctx, cfg)
 		pa := NewPatches()
 		defer pa.Reset()
 		sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
@@ -286,6 +292,9 @@ func TestHandleStakeMigrate(t *testing.T) {
 		r.NoError(errs[0])
 		r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipts[0].Status)
 		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
+		r.NoError(err)
+		tombstone := &BucketGuardV2Record{BucketGuardV2: bucketguard.BucketGuardV2{BucketClass: bucketguard.ClassBStaking, Generation: 3, GuardNonce: 7, NextRequestID: 1, BoundHeight: 1}}
+		_, err = sm.PutState(tombstone, vaultStateOptions(vaultKey(_stakingGuardV2, bktIdx))...)
 		r.NoError(err)
 		preVotes := csm.GetByOwner(identityset.Address(candOwnerID)).Votes
 		bkt, err := csm.NativeBucket(bktIdx)
@@ -343,6 +352,8 @@ func TestHandleStakeMigrate(t *testing.T) {
 		r.NoError(err)
 		_, err = csm.NativeBucket(bktIdx)
 		r.ErrorIs(err, state.ErrStateNotExist)
+		_, err = ReadStakingGuardV2(sm, bktIdx)
+		r.ErrorIs(err, state.ErrStateNotExist, "migration deletes Class B recovery metadata")
 		// votes reduced for staking indexer not enabled
 		cand := csm.GetByOwner(identityset.Address(candOwnerID))
 		r.NotNil(cand)
