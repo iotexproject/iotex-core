@@ -150,6 +150,8 @@ type (
 		EstimateMigrateStakeGasConsumption(context.Context, *action.MigrateStake, address.Address) (uint64, []byte, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
 		EstimateGasForNonExecution(action.Action) (uint64, error)
+		// EstimateBucketGuardGas checks native guard state and signatures before reporting gas.
+		EstimateBucketGuardGas(context.Context, action.Envelope, address.Address) (uint64, error)
 		// EstimateExecutionGasConsumption estimates gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc action.Envelope, callerAddr address.Address, opts ...protocol.SimulateOption) (uint64, []byte, error)
 		// LogsInBlockByHash filter logs in the block by hash
@@ -1791,6 +1793,57 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 		return 0, errors.Errorf("invalid action type not supported")
 	}
 	return act.IntrinsicGas()
+}
+
+// EstimateBucketGuardGas performs IIP-65's read-only preflight at the current
+// tip. It reports intrinsic gas only when the native transition can succeed.
+func (core *coreService) EstimateBucketGuardGas(ctx context.Context, elp action.Envelope, caller address.Address) (uint64, error) {
+	gas, err := elp.IntrinsicGas()
+	if err != nil {
+		return 0, err
+	}
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return 0, err
+	}
+	tip := protocol.MustGetBlockchainCtx(ctx).Tip
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight:    tip.Height + 1,
+		BlockTimeStamp: tip.Timestamp.Add(core.bc.Genesis().BlockInterval),
+	}))
+	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
+		return gas, nil
+	}
+	if vault, ok := elp.Action().(*action.VaultAction); ok {
+		m, err := vault.Vault()
+		if err != nil {
+			return 0, err
+		}
+		if m.Method == "vaultCreate" {
+			account, err := accountutil.AccountState(ctx, core.sf, caller)
+			if err != nil {
+				return 0, err
+			}
+			nonce := account.PendingNonce()
+			if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+				nonce = account.PendingNonceConsideringFreshAccount()
+			}
+			if elp.Nonce() < nonce {
+				return 0, action.ErrNonceTooLow
+			}
+		}
+	}
+	// A call object may omit gas; estimation supplies the native intrinsic gas.
+	elp.SetGas(gas)
+	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{Caller: caller, Nonce: elp.Nonce(), GasPrice: elp.GasPrice(), IntrinsicGas: gas})
+	p := staking.FindProtocol(core.registry)
+	if p == nil {
+		return 0, errors.New("staking protocol is unavailable")
+	}
+	if err := p.PreflightBucketGuard(ctx, elp, core.sf); err != nil {
+		return 0, err
+	}
+	return gas, nil
 }
 
 // EstimateMigrateStakeGasConsumption estimates gas consumption for migrate stake action

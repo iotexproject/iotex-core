@@ -15,6 +15,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 )
 
@@ -123,4 +125,39 @@ func TestPrivateValidatorIsNotOnTheBlockValidationPath(t *testing.T) {
 		"protocol validation must not reach actPool.Validate, which block validation uses")
 
 	r.Error(WithPrivateValidator(nil)(ap))
+}
+
+// guardAdmissionProtocol verifies that the stateful guard hook stays on the
+// private validator, independent of consensus ActionValidator rules.
+type guardAdmissionProtocol struct {
+	rejectingProtocol
+	checked bool
+}
+
+func (p *guardAdmissionProtocol) PreflightBucketGuard(_ context.Context, _ action.Envelope, _ protocol.StateReader) error {
+	p.checked = true
+	return errors.New("guard preflight rejected signature")
+}
+func TestProtocolValidatorGuardPreflight(t *testing.T) {
+	reg := protocol.NewRegistry()
+	p := &guardAdmissionProtocol{}
+	require.NoError(t, reg.Register("staking", p))
+	g := genesis.Default
+	g.ToBeEnabledBlockHeight = 0
+	g.ZanzibarGammaBlockHeight = 0
+	ctx := protocol.WithBlockchainCtx(genesis.WithGenesisContext(context.Background(), g), protocol.BlockchainCtx{})
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1}))
+	require.True(t, protocol.MustGetFeatureCtx(ctx).EnableBucketGuard)
+	a, err := action.NewVaultAction(&bucketguard.VaultAction{Method: "vaultInitiateExit", Index: 1})
+	require.NoError(t, err)
+	elp := (&action.EnvelopeBuilder{}).SetAction(a).SetGasLimit(100000).Build()
+	se, err := action.Sign(elp, identityset.PrivateKey(0))
+	require.NoError(t, err)
+	v := NewProtocolValidator(reg, nil)
+	require.ErrorContains(t, v.Validate(ctx, se), "guard preflight rejected signature")
+	require.True(t, p.checked)
+	p.checked = false
+	// Consensus calls the protocol's regular Validate, never its preflight.
+	require.NoError(t, p.Validate(ctx, elp, nil))
+	require.False(t, p.checked)
 }

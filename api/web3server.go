@@ -605,6 +605,23 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	}
 
 	switch act := elp.Action().(type) {
+	case *action.VaultAction, *action.BindBucketGuard, *action.GuardedBucketOp:
+		if nonce := in.Get("params.0.nonce"); nonce.Exists() {
+			n, err := hexStringToNumber(nonce.String())
+			if err != nil {
+				return nil, err
+			}
+			elp.SetNonce(n)
+		} else if vault, ok := elp.Action().(*action.VaultAction); ok {
+			m, e := vault.Vault()
+			if e != nil {
+				return nil, e
+			}
+			if m.Method == "vaultCreate" {
+				elp.SetNonce(m.OwnerTxNonce)
+			}
+		}
+		estimatedGas, err = svr.coreService.EstimateBucketGuardGas(ctx, elp, from)
 	case *action.Execution:
 		estimatedGas, retval, err = svr.coreService.EstimateExecutionGasConsumptionAt(ctx, elp, from, height)
 	case *action.MigrateStake:

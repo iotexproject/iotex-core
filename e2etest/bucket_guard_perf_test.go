@@ -68,7 +68,7 @@ func TestBucketGuardBlockPerf(t *testing.T) {
 		cfg.Network.Port = testutil.RandomPort()
 		cfg.System.HTTPStatsPort = 0
 	})
-	defer f.test.teardown()
+	defer f.teardown()
 	// Every measured block is full, so the base fee rises 12.5% per block;
 	// pay enough to stay above it for the whole run.
 	f.gasPrice = big.NewInt(unit.Qev * 1000)

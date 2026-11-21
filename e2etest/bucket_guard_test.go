@@ -81,28 +81,18 @@ type pendingAct struct {
 }
 
 func newGuardFixture(t *testing.T, opts ...func(*config.Config)) *guardFixture {
-	cfg := initCfg(require.New(t))
-	cfg.Genesis.ToBeEnabledBlockHeight = guardFork
-	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-	test := newE2ETest(t, cfg)
-	now := time.Now()
-	return &guardFixture{
-		test:      test,
-		chainID:   test.cfg.Chain.ID,
-		domain:    bucketguard.NewDomain(test.cfg.Chain.ID, test.cfg.Genesis.Hash()),
-		gasLimit:  4_000_000,
-		gasPrice:  big.NewInt(unit.Qev*2 + 1),
-		start:     now,
-		blockTime: now,
-		pending:   map[*actionWithTime]pendingAct{},
-	}
+	return newGuardInProcessFixture(t, opts...)
 }
 
 // run runs the cases, signing each pending action just before its case.
 func (f *guardFixture) run(cases []*testcase) {
+	for _, c := range cases {
+		for _, exp := range c.expect {
+			if basic, ok := exp.(*basicActionExpect); ok && basic.status != 0 && basic.status != uint64(iotextypes.ReceiptStatus_Success) {
+				c.direct = true
+			}
+		}
+	}
 	for _, c := range cases {
 		p, ok := f.pending[c.act]
 		if !ok {
@@ -114,6 +104,30 @@ func (f *guardFixture) run(cases []*testcase) {
 				pre(e)
 			}
 			a.act = f.sign(p.id, p.nonce, p.build())
+		}
+	}
+	for _, c := range cases {
+		if !c.direct {
+			continue
+		}
+		a, pre := c.act, c.preFunc
+		if a == nil {
+			continue
+		}
+		c.preFunc = func(e *e2etest) {
+			if pre != nil {
+				pre(e)
+			}
+			if !staking.IsBucketGuardAction(a.act.Action()) {
+				return
+			}
+			ctx := mustNoErr(e.cs.Blockchain().Context(context.Background()))
+			require.Error(e.t, e.cs.ActionPool().Add(ctx, a.act), "deterministic guard failure must be refused at admission")
+			require.Zero(e.t, e.cs.ActionPool().GetSize())
+			ethAction := a.act.Action().(action.EthCompatibleAction)
+			to := mustNoErr(ethAction.EthTo())
+			_, err := e.ethcli.EstimateGas(context.Background(), ethereum.CallMsg{From: common.BytesToAddress(a.act.SenderAddress().Bytes()), To: to, Data: mustNoErr(ethAction.EthData())})
+			require.Error(e.t, err, "deterministic guard failure must be refused by estimation")
 		}
 	}
 	f.test.run(cases)
@@ -322,7 +336,7 @@ func bucketIs(index uint64, check func(*testing.T, *iotextypes.VoteBucket)) acti
 // and withdrawal to a signed recipient.
 func TestBucketGuard(t *testing.T) {
 	f := newGuardFixture(t)
-	defer f.test.teardown()
+	defer f.teardown()
 	var (
 		ownerID, sponsorID, recipientID, otherID = 3, 4, 5, 6
 		owner                                    = identityset.Address(ownerID)
@@ -523,6 +537,7 @@ func TestBucketGuard(t *testing.T) {
 		},
 		{
 			name:    "WITHDRAW pays the signed recipient and deletes the guard",
+			direct:  true, // the block advances time beyond the withdrawal waiting period
 			preFunc: func(*e2etest) { recipientStart = f.balance(recipientID) },
 			act: func() *actionWithTime {
 				a := f.signedLater(sponsorID, func() guardPayload {
@@ -550,7 +565,7 @@ func TestBucketGuard(t *testing.T) {
 // legacy paths working again on the tombstone until a withdrawal deletes it.
 func TestBucketGuardTransferAndClear(t *testing.T) {
 	f := newGuardFixture(t)
-	defer f.test.teardown()
+	defer f.teardown()
 	var (
 		ownerID, newOwnerID = 3, 6
 		owner               = identityset.Address(ownerID)
@@ -646,7 +661,8 @@ func TestBucketGuardTransferAndClear(t *testing.T) {
 			expect: []actionExpect{successExpect, guardIs(bucket, 3, 2, nil)},
 		},
 		{
-			name: "legacy WithdrawStake deletes the tombstone with the bucket",
+			name:   "legacy WithdrawStake deletes the tombstone with the bucket",
+			direct: true, // execution test advances block time beyond current admission state
 			act: func() *actionWithTime {
 				a := f.at(action.SignedReclaimStake(true, f.nonce(ownerID), bucket, nil, f.gasLimit, f.gasPrice, identityset.PrivateKey(ownerID), action.WithChainID(f.chainID)))
 				a.t = f.start.Add(f.test.cfg.Genesis.WithdrawWaitingPeriod + 24*time.Hour)
@@ -672,7 +688,7 @@ func TestBucketGuardErigon(t *testing.T) {
 		cfg.API.WebSocketPort = 0
 		cfg.Plugins[config.GatewayPlugin] = true
 	})
-	defer f.test.teardown()
+	defer f.teardown()
 	var (
 		ownerID, sponsorID = 3, 4
 		owner              = identityset.Address(ownerID)
@@ -717,7 +733,8 @@ func TestBucketGuardErigon(t *testing.T) {
 			expect: []actionExpect{successExpect},
 		},
 		{
-			name: "unstake",
+			name:   "unstake",
+			direct: true, // execution test advances block time beyond current admission state
 			act: func() *actionWithTime {
 				a := f.signedLater(sponsorID, func() guardPayload {
 					return f.guarded(keyB, owner, f.op(bucket, bucketguard.OpUnstake, 2, 2))
@@ -729,7 +746,8 @@ func TestBucketGuardErigon(t *testing.T) {
 			expect: []actionExpect{successExpect},
 		},
 		{
-			name: "withdraw, then read every height back",
+			name:   "withdraw, then read every height back",
+			direct: true, // execution test advances block time beyond current admission state
 			act: func() *actionWithTime {
 				a := f.signedLater(sponsorID, func() guardPayload {
 					m := f.op(bucket, bucketguard.OpWithdraw, 2, 3)

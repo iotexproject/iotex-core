@@ -304,8 +304,11 @@ func (builder *Builder) buildActionPool() error {
 		// protocols are registered after this pool is built, so the slice is
 		// still empty right now. Registered as a private validator on purpose --
 		// see WithPrivateValidator.
+		cs := builder.cs
 		options = append(options, actpool.WithPrivateValidator(
-			actpool.NewProtocolValidator(builder.cs.registry, builder.cs.factory),
+			actpool.NewProtocolValidator(builder.cs.registry, builder.cs.factory, func(ctx context.Context) (context.Context, error) {
+				return cs.chain.Context(ctx)
+			}),
 		))
 		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool, options...)
 		if err != nil {

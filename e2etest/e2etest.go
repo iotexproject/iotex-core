@@ -49,6 +49,7 @@ type (
 		t   time.Time
 	}
 	testcase struct {
+		direct      bool // bypass local admission for consensus failure-receipt tests
 		name        string
 		preFunc     func(*e2etest)
 		preActs     []*actionWithTime
@@ -131,7 +132,15 @@ func (e *e2etest) runCase(ctx context.Context, c *testcase) {
 	}
 	// run action
 	if c.act != nil {
-		act, receipt, blk, err := addOneTx(ctx, ap, bc, c.act)
+		var act *action.SealedEnvelope
+		var receipt *action.Receipt
+		var blk *block.Block
+		var err error
+		if c.direct {
+			act, receipt, blk, err = (&guardFixture{test: e}).packDirect(e.t, c.act)
+		} else {
+			act, receipt, blk, err = addOneTx(ctx, ap, bc, c.act)
+		}
 		for _, exp := range c.expect {
 			exp.expect(e, act, receipt, err)
 		}

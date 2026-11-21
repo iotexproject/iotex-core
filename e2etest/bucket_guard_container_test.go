@@ -105,11 +105,11 @@ func TestBucketGuardInTxContainer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := require.New(t)
 			e := newGuardContainerEnv(t)
-			defer e.f.test.teardown()
+			defer e.f.teardown()
 			bc, ap := e.f.test.cs.Blockchain(), e.f.test.cs.ActionPool()
 			act := tc.act(e)
 			se := e.container(t, act, tc.gas(e, act))
-			r.NoError(ap.Add(ctx, se), "the pool sees only the container")
+			r.Error(ap.Add(ctx, se), "native guard preflight rejects malformed containers")
 			h := mustNoErr(se.Hash())
 			blk, err := bc.MintNewBlock(e.f.tick())
 			r.NoError(err)
@@ -122,7 +122,7 @@ func TestBucketGuardInTxContainer(t *testing.T) {
 	t.Run("well-formed op, and a validator without the pool", func(t *testing.T) {
 		r := require.New(t)
 		e := newGuardContainerEnv(t)
-		defer e.f.test.teardown()
+		defer e.f.teardown()
 		f, bc, ap := e.f, e.f.test.cs.Blockchain(), e.f.test.cs.ActionPool()
 		// signed correctly and priced by its own gas, it goes through
 		act := f.guarded(e.key, e.owner, f.op(1, bucketguard.OpUnstake, 1, 0))

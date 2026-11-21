@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -154,6 +155,10 @@ func vaultStateOptions(key []byte) []protocol.StateOption {
 }
 
 func (p *Protocol) handleVaultAction(ctx context.Context, act *action.VaultAction, csm CandidateStateManager) (log *receiptLog, txlogs []*action.TransactionLog, result error) {
+	return p.checkVaultAction(ctx, act, csm, false)
+}
+
+func (p *Protocol) checkVaultAction(ctx context.Context, act *action.VaultAction, csm CandidateStateManager, preflight bool) (log *receiptLog, txlogs []*action.TransactionLog, result error) {
 	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
 		return nil, nil, errors.New("bucket guard disabled")
 	}
@@ -162,9 +167,12 @@ func (p *Protocol) handleVaultAction(ctx context.Context, act *action.VaultActio
 		return nil, nil, err
 	}
 	sm := csm.SM()
-	sid := sm.Snapshot()
+	sid := -1
+	if !preflight {
+		sid = sm.Snapshot()
+	}
 	defer func() {
-		if result != nil {
+		if result != nil && !preflight {
 			if err := sm.Revert(sid); err != nil {
 				result = errors.Wrap(err, "vault revert")
 			}
@@ -270,6 +278,31 @@ func (p *Protocol) handleVaultAction(ctx context.Context, act *action.VaultActio
 			return nil, nil, err
 		}
 	}
+	if preflight && m.Method == "guardUnbindCancel" && g != nil {
+		switch {
+		case m.RequestID >= g.NextRequestID:
+			return nil, nil, bucketguard.ErrFutureRequestId
+		case g.Pending != nil && g.Pending.RequestID != m.RequestID:
+			return nil, nil, bucketguard.ErrStaleRequestId
+		case g.Pending != nil && env.Height >= g.Pending.ExpiresAt:
+			return nil, nil, bucketguard.ErrUnbindElapsed
+		case g.Pending != nil && env.Height > math.MaxUint64-bucketguard.CancelCooldownBlocks:
+			return nil, nil, bucketguard.ErrGuardMismatch
+		}
+	}
+	if preflight && m.Method == "vaultRotateOwner" {
+		newOwner, e := address.FromBytes(m.Call.NewOwner)
+		if e != nil {
+			return nil, nil, bucketguard.ErrMalformed
+		}
+		acct, e := accountutil.LoadAccount(sm, newOwner)
+		if e != nil {
+			return nil, nil, e
+		}
+		if acct.IsContract() {
+			return nil, nil, errors.Wrap(bucketguard.ErrGuardScope, "vault owner cannot be contract")
+		}
+	}
 	switch m.Method {
 	case "vaultCreate":
 		_, err = engine.VaultCreate(bucketguard.VaultEnv{OpEnv: env, OwnerTxNonce: ac.Nonce}, &bucketguard.VaultCreateRequest{Amount: m.Amount, OwnerTxNonce: m.OwnerTxNonce, Guard: m.Guard})
@@ -309,6 +342,9 @@ func (p *Protocol) handleVaultAction(ctx context.Context, act *action.VaultActio
 		if acct.IsContract() {
 			return nil, nil, vaultReceiptError(errors.Wrapf(bucketguard.ErrGuardScope, "vault owner cannot be contract %s", newOwner))
 		}
+	}
+	if preflight {
+		return nil, nil, nil
 	}
 	// Verify the entire transition before touching accounts or native records.
 	next := engine.Vault(index)

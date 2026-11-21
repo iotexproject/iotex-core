@@ -1004,3 +1004,18 @@ func (mr *MockintrinsicGasCalculatorMockRecorder) IntrinsicGas() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IntrinsicGas", reflect.TypeOf((*MockintrinsicGasCalculator)(nil).IntrinsicGas))
 }
+
+// EstimateBucketGuardGas mocks native guard gas estimation.
+func (m *MockCoreService) EstimateBucketGuardGas(ctx context.Context, elp action.Envelope, caller address.Address) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EstimateBucketGuardGas", ctx, elp, caller)
+	gas, _ := ret[0].(uint64)
+	err, _ := ret[1].(error)
+	return gas, err
+}
+
+// EstimateBucketGuardGas indicates an expected call.
+func (mr *MockCoreServiceMockRecorder) EstimateBucketGuardGas(ctx, elp, caller any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateBucketGuardGas", reflect.TypeOf((*MockCoreService)(nil).EstimateBucketGuardGas), ctx, elp, caller)
+}

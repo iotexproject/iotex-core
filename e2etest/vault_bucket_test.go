@@ -7,15 +7,19 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha512"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
+	"github.com/iotexproject/iotex-core/v2/api"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto/signer"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -25,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +39,13 @@ import (
 // mines and commits blocks, and reads balances from the node state factory.
 func TestVaultBucketDogfood(t *testing.T) {
 	f := newVaultChainFixture(t)
+	apiServer, err := f.test.cs.NewAPIServer(api.DefaultConfig, false)
+	require.NoError(t, err)
+	core := apiServer.CoreService()
+	rpcClient, err := rpc.DialOptions(context.Background(), "http://vault.test", rpc.WithHTTPClient(&http.Client{Transport: guardRPCTransport{api.NewWeb3Handler(core, "", 100)}}))
+	require.NoError(t, err)
+	t.Cleanup(rpcClient.Close)
+	eth := ethclient.NewClient(rpcClient)
 	key, newKey := guardKey(0x51), guardKey(0x52)
 	const ownerID = 3
 	owner := identityset.Address(ownerID)
@@ -42,7 +54,23 @@ func TestVaultBucketDogfood(t *testing.T) {
 	send := func(id int, m *bucketguard.VaultAction, success bool) *action.Receipt {
 		a, err := action.NewVaultAction(m)
 		require.NoError(t, err)
-		_, r, _, err := addOneTx(context.Background(), f.test.cs.ActionPool(), f.test.cs.Blockchain(), vaultWeb3Tx(t, f, id, a))
+
+		tx := vaultWeb3Tx(t, f, id, a)
+		to := mustNoErr(a.EthTo())
+		gas, estimateErr := eth.EstimateGas(context.Background(), ethereum.CallMsg{From: common.BytesToAddress(identityset.Address(id).Bytes()), To: to, GasPrice: f.gasPrice, Data: mustNoErr(a.EthData())})
+		var r *action.Receipt
+		if success {
+			require.NoError(t, estimateErr)
+			require.Equal(t, mustNoErr(a.IntrinsicGas()), gas)
+			_, r, _, err = addOneTx(context.Background(), f.test.cs.ActionPool(), f.test.cs.Blockchain(), tx)
+		} else {
+			require.Error(t, estimateErr)
+			ctx, e := f.test.cs.Blockchain().Context(context.Background())
+			require.NoError(t, e)
+			require.Error(t, f.test.cs.ActionPool().Add(ctx, tx.act))
+			require.Zero(t, f.test.cs.ActionPool().GetSize())
+			_, r, _, err = f.packDirect(t, tx)
+		}
 		require.NoError(t, err)
 		require.NotNil(t, r)
 		require.Zero(t, f.test.cs.ActionPool().GetGasSize(), "container removal refunds its admission gas")
@@ -133,13 +161,28 @@ func TestVaultBucketDogfood(t *testing.T) {
 	// A guard signature alone cannot withdraw from an unrelated outer sender.
 	before = f.balance(4)
 	v, g = read()
+	bad := signed("vaultWithdraw", bucketguard.VaultOpWithdraw, key, unit.ConvertIotxToRau(100), recipient.Bytes(), nil)
+	require.Len(t, bad.Call.Sig, 16224)
+	bad.Call.Sig[0] ^= 1
+	send(ownerID, bad, false)
 	send(4, signed("vaultWithdraw", bucketguard.VaultOpWithdraw, key, unit.ConvertIotxToRau(100), recipient.Bytes(), nil), false)
 	v2, g2 := read()
 	require.Equal(t, v, v2)
 	require.Equal(t, g, g2)
 	require.True(t, f.balance(4).Cmp(before) < 0, "failed action still pays gas")
 	send(ownerID, signed("vaultWithdraw", bucketguard.VaultOpWithdraw, key, unit.ConvertIotxToRau(450), recipient.Bytes(), nil), false)
+	// Deploy a minimal EVM contract to test the actual account-code check.
+	deploy := f.signed(ownerID, action.NewExecution("", new(big.Int), common.FromHex("0x6001600c60003960016000f300")))
+	_, deployed, _, deployErr := addOneTx(context.Background(), f.test.cs.ActionPool(), f.test.cs.Blockchain(), deploy)
+	require.NoError(t, deployErr)
+	require.EqualValues(t, iotextypes.ReceiptStatus_Success, deployed.Status)
+	contract := mustNoErr(address.FromString(deployed.ContractAddress))
+	send(ownerID, signed("vaultRotateOwner", bucketguard.VaultOpRotateOwner, key, new(big.Int), nil, contract.Bytes()), false)
 	send(ownerID, signed("vaultRotateOwner", bucketguard.VaultOpRotateOwner, key, new(big.Int), nil, identityset.Address(6).Bytes()), true)
+	badRotate := signed("vaultRotateGuard", bucketguard.VaultOpRotateGuard, key, new(big.Int), nil, nil)
+	require.Equal(t, 32448, len(badRotate.Call.Sig)+len(badRotate.Guard.AcceptSig))
+	badRotate.Guard.AcceptSig[0] ^= 1
+	send(6, badRotate, false)
 	send(6, signed("vaultRotateGuard", bucketguard.VaultOpRotateGuard, key, new(big.Int), nil, nil), true)
 	oldPresign := signed("vaultWithdraw", bucketguard.VaultOpWithdraw, newKey, unit.ConvertIotxToRau(100), recipient.Bytes(), nil)
 	send(4, signed("vaultRevokeSignatures", bucketguard.VaultOpRevokeSignatures, newKey, new(big.Int), nil, nil), true)
@@ -187,6 +230,9 @@ func newVaultChainFixture(t *testing.T) *guardFixture {
 
 func TestVaultBucketClassBRecovery(t *testing.T) {
 	f := newVaultChainFixture(t)
+	apiServer, err := f.test.cs.NewAPIServer(api.DefaultConfig, false)
+	require.NoError(t, err)
+	core := apiServer.CoreService()
 	const id = 3
 	owner := identityset.Address(id)
 	key := guardKey(0x53)
@@ -194,7 +240,23 @@ func TestVaultBucketClassBRecovery(t *testing.T) {
 	send := func(m *bucketguard.VaultAction, ok bool) {
 		a, err := action.NewVaultAction(m)
 		require.NoError(t, err)
-		_, r, _, err := addOneTx(context.Background(), f.test.cs.ActionPool(), f.test.cs.Blockchain(), vaultWeb3Tx(t, f, id, a))
+
+		tx := vaultWeb3Tx(t, f, id, a)
+		elp := (&action.EnvelopeBuilder{}).SetAction(a).SetGasLimit(f.gasLimit).SetGasPrice(f.gasPrice).SetNonce(tx.act.Nonce()).Build()
+		gas, estimateErr := core.EstimateBucketGuardGas(context.Background(), elp, owner)
+		if ok {
+			require.NoError(t, estimateErr)
+			require.Equal(t, mustNoErr(a.IntrinsicGas()), gas)
+		} else {
+			require.Error(t, estimateErr)
+		}
+		var r *action.Receipt
+		if ok {
+			_, r, _, err = addOneTx(context.Background(), f.test.cs.ActionPool(), f.test.cs.Blockchain(), tx)
+		} else {
+			require.Error(t, f.test.cs.ActionPool().Add(context.Background(), tx.act))
+			_, r, _, err = f.packDirect(t, tx)
+		}
 		require.NoError(t, err)
 		require.NotNil(t, r)
 		require.Zero(t, f.test.cs.ActionPool().GetGasSize(), "container removal refunds its admission gas")

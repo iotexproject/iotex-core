@@ -373,6 +373,11 @@ func fetchNativeBucket(csm CandidateStateManager, index uint64, notNative error)
 // caller is owner) are here; steps 4–7 are bucketguard.AuthorizeBind.
 func (p *Protocol) handleBindBucketGuard(ctx context.Context, act *action.BindBucketGuard, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
+	return p.checkBindBucketGuard(ctx, act, csm, false)
+}
+
+func (p *Protocol) checkBindBucketGuard(ctx context.Context, act *action.BindBucketGuard, csm CandidateStateManager, preflight bool,
+) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
@@ -404,6 +409,9 @@ func (p *Protocol) handleBindBucketGuard(ctx context.Context, act *action.BindBu
 		bucket.Owner, scope, cur, act.Guard(), blkCtx.BlockHeight)
 	if err != nil {
 		return log, nil, guardReceiptError(err)
+	}
+	if preflight {
+		return nil, nil, nil
 	}
 	if err := putBucketGuard(csm.SM(), index, next); err != nil {
 		return log, nil, err
@@ -442,6 +450,11 @@ func anchorBlockHash(ctx context.Context) func(uint64) ([32]byte, error) {
 // Nothing is written before step 6 succeeds. The staking snapshot still
 // covers a failure after it.
 func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.GuardedBucketOp, csm CandidateStateManager,
+) (*receiptLog, []*action.TransactionLog, error) {
+	return p.checkGuardedBucketOp(ctx, act, csm, false)
+}
+
+func (p *Protocol) checkGuardedBucketOp(ctx context.Context, act *action.GuardedBucketOp, csm CandidateStateManager, preflight bool,
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -529,6 +542,10 @@ func (p *Protocol) handleGuardedBucketOp(ctx context.Context, act *action.Guarde
 	}
 	if err != nil {
 		return log, nil, guardReceiptError(err)
+	}
+
+	if preflight {
+		return nil, nil, nil
 	}
 
 	// step 7
