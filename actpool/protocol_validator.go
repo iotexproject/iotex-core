@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
@@ -94,6 +95,26 @@ func (v *protocolValidator) Validate(ctx context.Context, selp *action.SealedEnv
 	case *action.BindBucketGuard, *action.GuardedBucketOp, *action.VaultAction:
 		if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
 			return nil
+		}
+		// Check confirmed sender resources before any PQ preflight. Keep this
+		// admission-only: estimation may omit both nonce and gas price.
+		acct, err := accountutil.LoadAccount(v.sr, protocol.MustGetActionCtx(ctx).Caller)
+		if err != nil {
+			return err
+		}
+		pendingNonce := acct.PendingNonce()
+		if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+			pendingNonce = acct.PendingNonceConsideringFreshAccount()
+		}
+		if selp.Nonce() < pendingNonce {
+			return action.ErrNonceTooLow
+		}
+		cost, err := selp.Cost()
+		if err != nil {
+			return err
+		}
+		if acct.Balance.Cmp(cost) < 0 {
+			return action.ErrInsufficientFunds
 		}
 		// Reject a bad outer ECDSA signature before spending SLH-DSA CPU.
 		if err := selp.VerifySignature(); err != nil {

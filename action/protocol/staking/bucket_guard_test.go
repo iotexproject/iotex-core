@@ -337,6 +337,7 @@ func TestGuardedOpExecutionRules(t *testing.T) {
 		{"clear to the staking protocol", other, clearTo(protocolAddr("staking")), iotextypes.ReceiptStatus_ErrGuardScope},
 		{"clear to the rewarding protocol", other, clearTo(protocolAddr("rewarding")), iotextypes.ReceiptStatus_ErrGuardScope},
 		{"clear to the bucket pool", other, clearTo(protocolAddr(_stakingBucketPool)), iotextypes.ReceiptStatus_ErrGuardScope},
+		{"clear to the vault pool", other, clearTo(func() []byte { p := bucketguard.VaultPool(); return p[:] }()), iotextypes.ReceiptStatus_ErrGuardScope},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := require.New(t)
@@ -502,4 +503,15 @@ func TestGuardActionCheckedBeforeExecution(t *testing.T) {
 			r.Zero(counted.writes)
 		})
 	}
+}
+
+func TestLegacyBucketGuardVaultPool(t *testing.T) {
+	pool := bucketguard.VaultPool()
+	recipient, err := address.FromBytes(pool[:])
+	require.NoError(t, err)
+	// These legacy execution checks must reject before reading account state.
+	err = checkGuardedNewOwner(nil, identityset.Address(1), recipient, true)
+	require.Equal(t, uint64(iotextypes.ReceiptStatus_ErrGuardScope), err.(ReceiptError).ReceiptStatus())
+	_, err = (&Protocol{}).checkGuardedWithdraw(context.Background(), nil, 0, nil, recipient)
+	require.Equal(t, uint64(iotextypes.ReceiptStatus_ErrGuardScope), err.(ReceiptError).ReceiptStatus())
 }

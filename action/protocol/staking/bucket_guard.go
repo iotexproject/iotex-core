@@ -6,6 +6,7 @@
 package staking
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 
@@ -586,7 +587,7 @@ func (p *Protocol) checkGuardedBucketOp(ctx context.Context, act *action.Guarded
 }
 
 // nativeProtocolAddrs are the addresses of the native protocols, the hash160
-// of each protocol ID (protocol.HashStringToAddress), and of the staking
+// of each protocol ID (protocol.HashStringToAddress), and of the vault and staking
 // bucket pool. None of them can send a staking action.
 var nativeProtocolAddrs = func() map[hash.Hash160]bool {
 	m := map[hash.Hash160]bool{}
@@ -601,6 +602,8 @@ var nativeProtocolAddrs = func() map[hash.Hash160]bool {
 	} {
 		m[hash.Hash160b([]byte(id))] = true
 	}
+	pool := bucketguard.VaultPool()
+	m[hash.BytesToHash160(pool[:])] = true
 	return m
 }()
 
@@ -635,6 +638,10 @@ func checkGuardedNewOwner(sr protocol.StateReader, owner, newOwner address.Addre
 // recipient account is created in memory only; the apply stores it.
 func (p *Protocol) checkGuardedWithdraw(ctx context.Context, csm CandidateStateManager, index uint64, bucket *VoteBucket, recipient address.Address,
 ) (*withdrawChange, error) {
+	pool := bucketguard.VaultPool()
+	if bytes.Equal(recipient.Bytes(), pool[:]) {
+		return nil, guardReceiptError(errors.Wrap(bucketguard.ErrGuardScope, "WITHDRAW to vault pool"))
+	}
 	opts := []state.AccountCreationOption{}
 	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
 		opts = append(opts, state.LegacyNonceAccountTypeOption())

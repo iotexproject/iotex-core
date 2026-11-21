@@ -10,8 +10,11 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_chainmanager"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -153,11 +156,61 @@ func TestProtocolValidatorGuardPreflight(t *testing.T) {
 	elp := (&action.EnvelopeBuilder{}).SetAction(a).SetGasLimit(100000).Build()
 	se, err := action.Sign(elp, identityset.PrivateKey(0))
 	require.NoError(t, err)
-	v := NewProtocolValidator(reg, nil)
+	sf := mock_chainmanager.NewMockStateReader(gomock.NewController(t))
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist)
+	v := NewProtocolValidator(reg, sf)
 	require.ErrorContains(t, v.Validate(ctx, se), "guard preflight rejected signature")
 	require.True(t, p.checked)
 	p.checked = false
 	// Consensus calls the protocol's regular Validate, never its preflight.
 	require.NoError(t, p.Validate(ctx, elp, nil))
 	require.False(t, p.checked)
+}
+
+// A bogus SLH-DSA signature must never reach preflight without sender funds.
+func TestProtocolValidatorGuardSenderResources(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		nonce   uint64
+		balance int64
+		want    error
+		checked bool
+	}{
+		{"unfunded", 1, 0, action.ErrInsufficientFunds, false},
+		{"stale", 0, 1000000000, action.ErrNonceTooLow, false},
+		{"queued", 2, 1000000000, nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reg := protocol.NewRegistry()
+			p := &guardAdmissionProtocol{}
+			require.NoError(t, reg.Register("staking", p))
+			g := genesis.Default
+			g.ToBeEnabledBlockHeight = 0
+			g.ZanzibarGammaBlockHeight = 0
+			ctx := protocol.WithBlockchainCtx(genesis.WithGenesisContext(context.Background(), g), protocol.BlockchainCtx{})
+			ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: 1}))
+			a, err := action.NewVaultAction(&bucketguard.VaultAction{Method: "vaultRevokeSignatures", Index: 1, Call: bucketguard.VaultCall{Generation: 1, Deadline: 20, AnchorHash: make([]byte, 32), Sig: make([]byte, 16224)}})
+			require.NoError(t, err)
+			elp := (&action.EnvelopeBuilder{}).SetAction(a).SetNonce(tc.nonce).SetGasPrice(big.NewInt(1)).SetGasLimit(10000000).Build()
+			se, err := action.Sign(elp, identityset.PrivateKey(0))
+			require.NoError(t, err)
+			sf := mock_chainmanager.NewMockStateReader(gomock.NewController(t))
+			sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(v interface{}, _ ...protocol.StateOption) (uint64, error) {
+				acct, err := state.NewAccount()
+				require.NoError(t, err)
+				require.NoError(t, acct.SetPendingNonce(1))
+				require.NoError(t, acct.AddBalance(big.NewInt(tc.balance)))
+				*v.(*state.Account) = *acct
+				return 0, nil
+			})
+			err = NewProtocolValidator(reg, sf).Validate(ctx, se)
+			if tc.want != nil {
+				require.ErrorIs(t, err, tc.want)
+			} else {
+				require.ErrorContains(t, err, "guard preflight rejected signature")
+			}
+			require.NotErrorIs(t, err, bucketguard.ErrGuardSignature)
+			require.Equal(t, tc.checked, p.checked)
+		})
+	}
 }
