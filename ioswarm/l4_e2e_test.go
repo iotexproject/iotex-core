@@ -56,6 +56,7 @@ func TestL4StateDiffFullPipeline(t *testing.T) {
 		diffBroadcaster: NewStateDiffBroadcaster(cfg.DiffBufferSize, logger),
 		logger:          logger,
 	}
+	coord.initBounds()
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", "127.0.0.1:0")

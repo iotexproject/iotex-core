@@ -7,6 +7,7 @@ package p2p
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"sync"
 	"testing"
@@ -193,5 +194,15 @@ func TestConsensusTopicMsgTypes(t *testing.T) {
 		iotexrpc.MessageType_BUNDLE,
 	} {
 		r.False(isConsensusTopicMsgType(mt), mt.String())
+	}
+}
+
+func TestMsgTypeLabel(t *testing.T) {
+	r := require.New(t)
+	for v := range iotexrpc.MessageType_name {
+		r.Equal(strconv.Itoa(int(v)), msgTypeLabel(iotexrpc.MessageType(v)))
+	}
+	for _, v := range []int32{-1, 10, 10000, 10003, math.MaxInt32, math.MinInt32} {
+		r.Equal(_unknownMsgTypeLabel, msgTypeLabel(iotexrpc.MessageType(v)), v)
 	}
 }

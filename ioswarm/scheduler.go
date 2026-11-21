@@ -18,6 +18,13 @@ type Scheduler struct {
 	logger     *zap.Logger
 	mu         sync.Mutex
 	retryQueue []*pb.TaskBatch
+	// onDispatch, if set, runs send, which hands a batch to an agent, and
+	// records which agent got it. tracked is false, and send is not run, if
+	// the batch cannot be recorded.
+	onDispatch func(agentID string, batch *pb.TaskBatch, send func() bool) (sent, tracked bool)
+	// pending, if set, reports the tasks an agent was sent and has not
+	// answered. It stands in for the agent's own TasksPending report.
+	pending func(agentID string) int
 }
 
 // NewScheduler creates a new task scheduler.
@@ -97,7 +104,7 @@ func (s *Scheduler) dispatchBatch(batch *pb.TaskBatch) bool {
 	}
 
 	// Filter by capability and sort by load (least-loaded first)
-	capable := filterAndSortByLoad(agents, requiredLevel)
+	capable := filterAndSortByLoad(agents, requiredLevel, s.pending)
 	if len(capable) == 0 {
 		s.logger.Debug("no capable agents for task level",
 			zap.Int32("level", int32(requiredLevel)))
@@ -106,17 +113,34 @@ func (s *Scheduler) dispatchBatch(batch *pb.TaskBatch) bool {
 
 	// Try each agent in order of increasing load
 	for _, agent := range capable {
-		select {
-		case agent.TaskChan <- batch:
-			s.logger.Debug("dispatched batch",
-				zap.String("agent", agent.ID),
-				zap.String("batch", batch.BatchID),
-				zap.Int("tasks", len(batch.Tasks)))
-			return true
-		default:
+		send := func() bool {
+			select {
+			case agent.TaskChan <- batch:
+				return true
+			default:
+				return false
+			}
+		}
+		sent, tracked := true, true
+		if s.onDispatch != nil {
+			sent, tracked = s.onDispatch(agent.ID, batch, send)
+		} else {
+			sent = send()
+		}
+		if !tracked {
+			s.logger.Debug("too many outstanding tasks, deferring batch",
+				zap.String("batch", batch.BatchID))
+			return false
+		}
+		if !sent {
 			// Channel full, try next agent
 			continue
 		}
+		s.logger.Debug("dispatched batch",
+			zap.String("agent", agent.ID),
+			zap.String("batch", batch.BatchID),
+			zap.Int("tasks", len(batch.Tasks)))
+		return true
 	}
 
 	return false
@@ -134,8 +158,11 @@ func (s *Scheduler) enqueueRetry(batch *pb.TaskBatch) {
 }
 
 // filterAndSortByLoad returns agents capable of handling the given task level,
-// sorted by estimated load (TasksPending + channel queue length).
-func filterAndSortByLoad(agents []*AgentInfo, requiredLevel pb.TaskLevel) []*AgentInfo {
+// sorted by estimated load: batches queued for the agent plus, when pending is
+// set, tasks it was sent and has not answered. The agent's self-reported
+// TasksPending is not used, since an agent could understate it to be picked
+// first.
+func filterAndSortByLoad(agents []*AgentInfo, requiredLevel pb.TaskLevel, pending func(string) int) []*AgentInfo {
 	var capable []*AgentInfo
 	for _, a := range agents {
 		if a.Capability >= requiredLevel {
@@ -143,10 +170,15 @@ func filterAndSortByLoad(agents []*AgentInfo, requiredLevel pb.TaskLevel) []*Age
 		}
 	}
 
+	load := func(a *AgentInfo) int {
+		n := len(a.TaskChan)
+		if pending != nil {
+			n += pending(a.ID)
+		}
+		return n
+	}
 	sort.Slice(capable, func(i, j int) bool {
-		loadI := int(capable[i].TasksPending) + len(capable[i].TaskChan)
-		loadJ := int(capable[j].TasksPending) + len(capable[j].TaskChan)
-		return loadI < loadJ
+		return load(capable[i]) < load(capable[j])
 	})
 
 	return capable

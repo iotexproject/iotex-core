@@ -61,6 +61,11 @@ func (s *ShadowComparator) RecordAgentResults(agentID string, batch *pb.BatchRes
 			AgentID:     agentID,
 		})
 	}
+	// Results only leave when a block carrying their tx arrives; keep the
+	// newest ones if blocks stop matching.
+	if over := len(s.results) - maxShadowResults; over > 0 {
+		s.results = append(s.results[:0], s.results[over:]...)
+	}
 }
 
 // AgentAccuracy holds per-agent shadow match counts for a comparison batch.

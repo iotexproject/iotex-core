@@ -32,6 +32,7 @@ type ActQueue interface {
 	AccountState() (uint64, *big.Int)
 	PendingNonce() uint64
 	NextAction() (bool, *big.Int)
+	NumQueuedActs() int
 	Len() int
 	Empty() bool
 	PendingActs(context.Context) []*action.SealedEnvelope
@@ -90,6 +91,22 @@ func (q *actQueue) NextAction() (bool, *big.Int) {
 		return false, nil
 	}
 	return q.pendingNonce > q.accountNonce, q.items[q.ascQueue[0].nonce].GasFeeCap()
+}
+
+// NumQueuedActs returns the number of actions in the queue that cannot be
+// executed yet, i.e. those at or above the pending nonce (nonce gap or
+// insufficient balance).
+func (q *actQueue) NumQueuedActs() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	var executable uint64
+	if q.pendingNonce > q.accountNonce {
+		executable = q.pendingNonce - q.accountNonce
+	}
+	if executable >= uint64(len(q.items)) {
+		return 0
+	}
+	return len(q.items) - int(executable)
 }
 
 // Put inserts a new action into the map, also updating the queue's nonce index

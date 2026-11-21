@@ -3,6 +3,7 @@ package ioswarm
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -47,8 +48,20 @@ type Coordinator struct {
 	totalDispatched atomic.Uint64
 	totalReceived   atomic.Uint64
 
-	// Recent results buffer for EVM shadow comparison
-	recentResults sync.Map // task_id → *pb.TaskResult
+	// Recent results buffer for EVM shadow comparison, at most
+	// maxRecentResults entries
+	recentResults    sync.Map // task_id → *pb.TaskResult
+	numRecentResults atomic.Int64
+
+	// Tasks handed to an agent and not yet answered. A result counts only
+	// if its task was dispatched to the agent that submits it, once.
+	outstanding *outstandingTasks
+
+	// l3Cache holds the L3 enrichment of each pending tx for the current tip,
+	// so a tx is simulated once per block rather than once per poll.
+	l3Cache *l3EnrichmentCache
+
+	grpcHandler *grpcHandler
 
 	// txHash → taskID mapping for shadow comparison with on-chain results
 	txHashToTaskID sync.Map // hex tx hash → uint32 task ID
@@ -86,6 +99,7 @@ func NewCoordinator(cfg Config, actPool ActPoolReader, stateReader StateReader, 
 		diffBroadcaster: NewStateDiffBroadcaster(cfg.DiffBufferSize, logger),
 		logger:          logger,
 	}
+	coord.initBounds()
 
 	// Open persistent diff store if enabled
 	if cfg.DiffStoreEnabled {
@@ -104,6 +118,15 @@ func NewCoordinator(cfg Config, actPool ActPoolReader, stateReader StateReader, 
 	}
 
 	return coord
+}
+
+// initBounds sets up the state that limits what agents can make the
+// coordinator hold or credit.
+func (c *Coordinator) initBounds() {
+	c.outstanding = newOutstandingTasks()
+	c.l3Cache = newL3EnrichmentCache()
+	c.scheduler.onDispatch = c.outstanding.send
+	c.scheduler.pending = c.outstanding.pending
 }
 
 // Option configures the coordinator.
@@ -145,6 +168,11 @@ func (c *Coordinator) Start(ctx context.Context) error {
 		zap.Int("port", c.cfg.GRPCPort),
 		zap.Bool("shadow_mode", c.cfg.ShadowMode),
 		zap.String("task_level", c.cfg.TaskLevel))
+	// Without a master secret any client can register under any agent ID,
+	// take over another agent's tasks and collect its rewards.
+	if c.cfg.MasterSecret == "" {
+		return errors.New("ioswarm: masterSecret must be set")
+	}
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", c.cfg.GRPCPort))
@@ -160,15 +188,13 @@ func (c *Coordinator) Start(ctx context.Context) error {
 		}),
 		grpc.MaxConcurrentStreams(100),
 	}
-	if c.cfg.MasterSecret != "" {
-		grpcOpts = append(grpcOpts,
-			grpc.UnaryInterceptor(hmacUnaryInterceptor(c.cfg.MasterSecret)),
-			grpc.StreamInterceptor(hmacStreamInterceptor(c.cfg.MasterSecret)),
-		)
-		c.logger.Info("gRPC HMAC auth enabled")
-	}
+	grpcOpts = append(grpcOpts,
+		grpc.UnaryInterceptor(hmacUnaryInterceptor(c.cfg.MasterSecret)),
+		grpc.StreamInterceptor(hmacStreamInterceptor(c.cfg.MasterSecret)),
+	)
 	c.grpcServer = grpc.NewServer(grpcOpts...)
-	RegisterIOSwarmServer(c.grpcServer, &grpcHandler{coord: c})
+	c.grpcHandler = &grpcHandler{coord: c}
+	RegisterIOSwarmServer(c.grpcServer, c.grpcHandler)
 
 	go func() {
 		defer func() {
@@ -215,10 +241,7 @@ func (c *Coordinator) Start(ctx context.Context) error {
 	// Start SwarmAPI HTTP server
 	if c.cfg.SwarmAPIPort > 0 {
 		api := NewSwarmAPI(c, c.reward)
-		var handler http.Handler = api.Handler()
-		if c.cfg.MasterSecret != "" {
-			handler = tokenHTTPMiddleware(c.cfg.MasterSecret, handler)
-		}
+		handler := tokenHTTPMiddleware(c.cfg.MasterSecret, api.Handler())
 		c.httpServer = &http.Server{
 			Addr:    fmt.Sprintf(":%d", c.cfg.SwarmAPIPort),
 			Handler: handler,
@@ -301,10 +324,20 @@ func (c *Coordinator) pollAndDispatch() {
 		return // block timestamp is >30s behind wall clock — still syncing
 	}
 
+	// Building tasks reads state for every pending tx (and at L3 simulates
+	// it), so do none of it unless some agent can take the tasks.
+	level := parseTaskLevel(c.cfg.TaskLevel)
+	if len(filterAndSortByLoad(c.registry.LiveAgents(30*time.Second), level, nil)) == 0 {
+		return
+	}
+
 	// 1. Get pending txs from actpool
 	pending := c.actPool.PendingActions()
 	if len(pending) == 0 {
 		return
+	}
+	if len(pending) > maxTasksPerPoll {
+		pending = pending[:maxTasksPerPoll]
 	}
 
 	// Check if block height advanced — invalidate prefetcher cache
@@ -316,7 +349,6 @@ func (c *Coordinator) pollAndDispatch() {
 	stateMap := c.prefetcher.Prefetch(pending)
 
 	// 3. Build task packages
-	level := parseTaskLevel(c.cfg.TaskLevel)
 	tasks := make([]*pb.TaskPackage, 0, len(pending))
 
 	for _, tx := range pending {
@@ -379,13 +411,39 @@ func (c *Coordinator) evictionLoop(ctx context.Context) {
 			evicted := c.registry.EvictStale(60 * time.Second)
 			for _, id := range evicted {
 				c.logger.Info("evicted stale agent", zap.String("agent", id))
+				if c.grpcHandler != nil {
+					c.grpcHandler.rateLimiter.Delete(id)
+				}
 			}
+			c.outstanding.expire(time.Now().Add(-outstandingTaskTTL))
 		}
 	}
 }
 
-// handleResults processes results from an agent.
+// handleResults processes results from an agent. Only results for tasks that
+// were dispatched to this agent and not answered yet are kept; everything else
+// is dropped before it reaches the shadow comparison or the reward system.
 func (c *Coordinator) handleResults(result *pb.BatchResult) {
+	results := make([]*pb.TaskResult, 0, len(result.Results))
+	for _, r := range result.Results {
+		if r != nil && c.outstanding.take(result.AgentID, r.TaskID) {
+			results = append(results, r)
+		}
+	}
+	if dropped := len(result.Results) - len(results); dropped > 0 {
+		c.logger.Warn("dropped results for tasks not dispatched to agent",
+			zap.String("agent", result.AgentID),
+			zap.Int("dropped", dropped))
+	}
+	if len(results) == 0 {
+		return
+	}
+	result = &pb.BatchResult{
+		AgentID:   result.AgentID,
+		BatchID:   result.BatchID,
+		Results:   results,
+		Timestamp: result.Timestamp,
+	}
 	c.totalReceived.Add(uint64(len(result.Results)))
 
 	if c.cfg.ShadowMode {
@@ -394,7 +452,12 @@ func (c *Coordinator) handleResults(result *pb.BatchResult) {
 
 	// Store results for EVM shadow comparison
 	for _, r := range result.Results {
-		c.recentResults.Store(r.TaskID, r)
+		if c.numRecentResults.Load() >= maxRecentResults {
+			break
+		}
+		if _, loaded := c.recentResults.LoadOrStore(r.TaskID, r); !loaded {
+			c.numRecentResults.Add(1)
+		}
 	}
 
 	// Feed reward system: count tasks processed and latency.
@@ -522,8 +585,10 @@ func (c *Coordinator) LastTaskID() uint32 {
 func (c *Coordinator) DrainRecentResults() []*pb.TaskResult {
 	var results []*pb.TaskResult
 	c.recentResults.Range(func(key, value any) bool {
-		results = append(results, value.(*pb.TaskResult))
-		c.recentResults.Delete(key)
+		if _, loaded := c.recentResults.LoadAndDelete(key); loaded {
+			c.numRecentResults.Add(-1)
+			results = append(results, value.(*pb.TaskResult))
+		}
 		return true
 	})
 	return results
@@ -713,9 +778,11 @@ func (c *Coordinator) enrichL3Task(task *pb.TaskPackage, tx *PendingTx, blockHei
 		// Simulate EVM execution to discover all accessed storage slots and addresses.
 		// This pre-executes the tx read-only against current state to capture
 		// the exact slots the EVM touches (via EIP-2929 access list tracking).
-		accessedSlots, err := c.prefetcher.stateReader.SimulateAccessList(
-			tx.From, tx.To, tx.Data, tx.Amount, tx.GasLimit,
-		)
+		accessedSlots, err := c.l3Cache.simulate(blockHeight, tx.Hash, func() (map[string][]string, error) {
+			return c.prefetcher.stateReader.SimulateAccessList(
+				tx.From, tx.To, tx.Data, tx.Amount, tx.GasLimit,
+			)
+		})
 		if err != nil {
 			c.logger.Warn("SimulateAccessList failed, falling back to slot 0",
 				zap.String("tx", tx.Hash), zap.Error(err))

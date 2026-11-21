@@ -40,11 +40,15 @@ type ActPoolReader interface {
 	BlockHeight() uint64
 }
 
+// prefetchConcurrency caps the state reads a Prefetcher runs at once.
+const prefetchConcurrency = 32
+
 // Prefetcher batch-reads account state for pending transactions.
 type Prefetcher struct {
 	stateReader StateReader
 	logger      *zap.Logger
 	cache       atomic.Pointer[sync.Map]
+	sem         chan struct{} // one slot per running state read
 }
 
 // NewPrefetcher creates a new state prefetcher.
@@ -52,6 +56,7 @@ func NewPrefetcher(sr StateReader, logger *zap.Logger) *Prefetcher {
 	p := &Prefetcher{
 		stateReader: sr,
 		logger:      logger,
+		sem:         make(chan struct{}, prefetchConcurrency),
 	}
 	p.cache.Store(&sync.Map{})
 	return p
@@ -98,8 +103,10 @@ func (p *Prefetcher) Prefetch(txs []*PendingTx) map[string]*pb.AccountSnapshot {
 
 	for _, addr := range toFetch {
 		wg.Add(1)
+		p.sem <- struct{}{}
 		go func(a string) {
 			defer wg.Done()
+			defer func() { <-p.sem }()
 			snap, err := p.stateReader.AccountState(a)
 			if err != nil {
 				p.logger.Warn("failed to read account state",
@@ -131,13 +138,20 @@ func (p *Prefetcher) PrefetchCode(addresses []string) map[string][]byte {
 	codes := make(map[string][]byte, len(addresses))
 	var mu sync.Mutex
 
-	done := make(chan struct{})
+	done, stop := make(chan struct{}), make(chan struct{})
 	go func() {
 		var wg sync.WaitGroup
+	spawn:
 		for _, addr := range addresses {
+			select {
+			case p.sem <- struct{}{}:
+			case <-stop:
+				break spawn
+			}
 			wg.Add(1)
 			go func(a string) {
 				defer wg.Done()
+				defer func() { <-p.sem }()
 				code, err := p.stateReader.GetCode(a)
 				if err != nil {
 					p.logger.Warn("failed to get code",
@@ -159,6 +173,7 @@ func (p *Prefetcher) PrefetchCode(addresses []string) map[string][]byte {
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
+		close(stop)
 		p.logger.Warn("PrefetchCode timed out")
 	}
 	mu.Lock()
@@ -171,13 +186,20 @@ func (p *Prefetcher) PrefetchStorage(address string, slots []string) map[string]
 	storage := make(map[string]string, len(slots))
 	var mu sync.Mutex
 
-	done := make(chan struct{})
+	done, stop := make(chan struct{}), make(chan struct{})
 	go func() {
 		var wg sync.WaitGroup
+	spawn:
 		for _, slot := range slots {
+			select {
+			case p.sem <- struct{}{}:
+			case <-stop:
+				break spawn
+			}
 			wg.Add(1)
 			go func(s string) {
 				defer wg.Done()
+				defer func() { <-p.sem }()
 				val, err := p.stateReader.GetStorageAt(address, s)
 				if err != nil {
 					p.logger.Warn("failed to get storage",
@@ -198,6 +220,7 @@ func (p *Prefetcher) PrefetchStorage(address string, slots []string) map[string]
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
+		close(stop)
 		p.logger.Warn("PrefetchStorage timed out", zap.String("address", address))
 	}
 	mu.Lock()

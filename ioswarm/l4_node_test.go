@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/config"
@@ -39,6 +40,7 @@ func TestL4RealNodeStateDiffs(t *testing.T) {
 		ShadowMode:     true,
 		PollIntervalMS: 500,
 		DiffBufferSize: 100,
+		MasterSecret:   "test-secret-l4-real-node",
 		Reward:         ioswarm.DefaultRewardConfig(),
 	}
 
@@ -76,6 +78,10 @@ func TestL4RealNodeStateDiffs(t *testing.T) {
 	require.NoError(err, "agent connect failed")
 	defer conn.Close()
 
+	agentCtx = metadata.AppendToOutgoingContext(agentCtx,
+		"x-ioswarm-agent-id", "test-l4-real-node",
+		"x-ioswarm-token", ioswarm.DeriveAgentToken(cfg.IOSwarm.MasterSecret, "test-l4-real-node"),
+	)
 	streamDesc := &grpc.StreamDesc{StreamName: "StreamStateDiffs", ServerStreams: true}
 	stream, err := conn.NewStream(agentCtx, streamDesc, "/ioswarm.IOSwarm/StreamStateDiffs")
 	require.NoError(err, "open stream failed")

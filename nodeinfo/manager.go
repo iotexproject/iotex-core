@@ -61,10 +61,23 @@ type (
 		privKeys      map[string]crypto.PrivateKey
 		addrs         []string
 		mutex         sync.RWMutex
+		// heightSeries maps each address with an exported height gauge series
+		// to its labels, so the number of series stays bounded
+		heightSeries   *lru.Cache
+		heightSeriesMu sync.Mutex
+	}
+
+	// heightSeriesEntry is the label value and height last exported for an address
+	heightSeriesEntry struct {
+		version string
+		height  uint64
 	}
 
 	getBroadcastListFunc func() []string
 )
+
+// _maxVersionLabelLen caps the length of the version label value
+const _maxVersionLabelLen = 64
 
 var _nodeInfoHeightGauge = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
@@ -95,6 +108,17 @@ func NewInfoManager(cfg *Config, t transmitter, ch chain, blockInterval time.Dur
 		privKeys:      keyMaps,
 		version:       version.PackageVersion,
 		blockInterval: blockInterval,
+	}
+	// export at most one height series per address, for at most seriesLimit
+	// addresses; the series of the least recently updated address is removed
+	// when the limit is reached
+	seriesLimit := cfg.NodeMapSize
+	if seriesLimit <= 0 {
+		seriesLimit = DefaultConfig.NodeMapSize
+	}
+	dm.heightSeries = lru.New(seriesLimit)
+	dm.heightSeries.OnEvicted = func(key lru.Key, value interface{}) {
+		_nodeInfoHeightGauge.DeleteLabelValues(key.(string), value.(heightSeriesEntry).version)
 	}
 	if cfg.DisableBroadcastNodeInfo {
 		return dm
@@ -174,11 +198,50 @@ func (dm *InfoManager) HandleNodeInfo(ctx context.Context, peerID string, msg *i
 
 // updateNode update node info
 func (dm *InfoManager) updateNode(node *Info) {
+	node.Version = sanitizeVersion(node.Version)
 	id := node.PeerID
 	// update dm.nodeMap
 	dm.nodeMap.Add(id, *node)
 	// update metric
-	_nodeInfoHeightGauge.WithLabelValues(node.Address, node.Version).Set(float64(node.Height))
+	dm.updateHeightSeries(node.Address, node.Version, node.Height)
+}
+
+// updateHeightSeries exports the height of an address under its latest version.
+// A message reporting a lower height than the one already exported for the
+// address is ignored, and the series of the previous version is removed when
+// the version changes.
+func (dm *InfoManager) updateHeightSeries(addr, ver string, height uint64) {
+	dm.heightSeriesMu.Lock()
+	defer dm.heightSeriesMu.Unlock()
+	if value, ok := dm.heightSeries.Get(addr); ok {
+		prev := value.(heightSeriesEntry)
+		if height < prev.height {
+			return
+		}
+		if prev.version != ver {
+			_nodeInfoHeightGauge.DeleteLabelValues(addr, prev.version)
+		}
+	}
+	dm.heightSeries.Add(addr, heightSeriesEntry{version: ver, height: height})
+	_nodeInfoHeightGauge.WithLabelValues(addr, ver).Set(float64(height))
+}
+
+// sanitizeVersion truncates the version to _maxVersionLabelLen bytes and
+// replaces any byte outside [0-9A-Za-z._+-] with '_'
+func sanitizeVersion(v string) string {
+	if len(v) > _maxVersionLabelLen {
+		v = v[:_maxVersionLabelLen]
+	}
+	b := []byte(v)
+	for i, c := range b {
+		switch {
+		case c >= '0' && c <= '9', c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z',
+			c == '.', c == '_', c == '+', c == '-':
+		default:
+			b[i] = '_'
+		}
+	}
+	return string(b)
 }
 
 // GetNodeInfo get node info by address

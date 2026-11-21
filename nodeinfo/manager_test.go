@@ -7,12 +7,15 @@ package nodeinfo
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -158,6 +161,144 @@ func TestDelegateManager_HandleNodeInfo(t *testing.T) {
 		_nodeInfoHeightGauge.WithLabelValues(addr, msg.Info.Version).Write(&m)
 		require.Equal(uint64(0), uint64(m.Gauge.GetValue()))
 	})
+}
+
+func signedNodeInfo(t *testing.T, privKey crypto.PrivateKey, ver string, height uint64) *iotextypes.NodeInfo {
+	msg := &iotextypes.NodeInfo{
+		Info: &iotextypes.NodeInfoCore{
+			Version:   ver,
+			Height:    height,
+			Timestamp: timestamppb.Now(),
+			Address:   privKey.PublicKey().Address().String(),
+		},
+	}
+	h := hashNodeInfo(msg.Info)
+	sig, err := privKey.Sign(h[:])
+	require.NoError(t, err)
+	msg.Signature = sig
+	return msg
+}
+
+// heightSeries returns the version label values exported for each address
+func heightSeries(t *testing.T) map[string][]string {
+	ch := make(chan prometheus.Metric, 1024)
+	go func() {
+		_nodeInfoHeightGauge.Collect(ch)
+		close(ch)
+	}()
+	series := make(map[string][]string)
+	for m := range ch {
+		pb := dto.Metric{}
+		require.NoError(t, m.Write(&pb))
+		var addr, ver string
+		for _, l := range pb.GetLabel() {
+			switch l.GetName() {
+			case "address":
+				addr = l.GetValue()
+			case "version":
+				ver = l.GetValue()
+			}
+		}
+		series[addr] = append(series[addr], ver)
+	}
+	return series
+}
+
+func gaugeValue(t *testing.T, addr, ver string) float64 {
+	m := dto.Metric{}
+	require.NoError(t, _nodeInfoHeightGauge.WithLabelValues(addr, ver).Write(&m))
+	return m.GetGauge().GetValue()
+}
+
+func TestDelegateManager_HeightSeriesBound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	hMock := mock_nodeinfo.NewMockchain(ctrl)
+	tMock := mock_nodeinfo.NewMocktransmitter(ctrl)
+
+	t.Run("series_count_capped_and_version_sanitized", func(t *testing.T) {
+		require := require.New(t)
+		_nodeInfoHeightGauge.Reset()
+		defer _nodeInfoHeightGauge.Reset()
+		const limit = 8
+		cfg := Config{true, time.Minute, limit}
+		dm := NewInfoManager(&cfg, tMock, hMock, 2500*time.Millisecond)
+		longVersion := strings.Repeat("v1.0.0\n{}\"é", 400)
+		for i := 0; i < 10*limit; i++ {
+			privKey, err := crypto.GenerateKey()
+			require.NoError(err)
+			ver := fmt.Sprintf("%d-%s", i, longVersion)
+			dm.HandleNodeInfo(context.Background(), "peer", signedNodeInfo(t, privKey, ver, uint64(i+1)))
+		}
+		series := heightSeries(t)
+		require.Len(series, limit)
+		for _, vers := range series {
+			require.Len(vers, 1)
+			require.LessOrEqual(len(vers[0]), _maxVersionLabelLen)
+			require.Regexp(`^[0-9A-Za-z._+-]+$`, vers[0])
+		}
+		info, ok := dm.GetNodeInfo("peer")
+		require.True(ok)
+		require.LessOrEqual(len(info.Version), _maxVersionLabelLen)
+	})
+
+	t.Run("one_series_per_address_with_latest_version", func(t *testing.T) {
+		require := require.New(t)
+		_nodeInfoHeightGauge.Reset()
+		defer _nodeInfoHeightGauge.Reset()
+		dm := NewInfoManager(&DefaultConfig, tMock, hMock, 2500*time.Millisecond)
+		privKey, err := crypto.GenerateKey()
+		require.NoError(err)
+		addr := privKey.PublicKey().Address().String()
+
+		dm.HandleNodeInfo(context.Background(), "p1", signedNodeInfo(t, privKey, "v2.5.1", 100))
+		dm.HandleNodeInfo(context.Background(), "p1", signedNodeInfo(t, privKey, "v2.5.2", 110))
+		require.Equal(map[string][]string{addr: {"v2.5.2"}}, heightSeries(t))
+		require.Equal(float64(110), gaugeValue(t, addr, "v2.5.2"))
+
+		// a message reporting a lower height does not replace the exported version
+		dm.HandleNodeInfo(context.Background(), "p2", signedNodeInfo(t, privKey, "v2.5.1", 105))
+		require.Equal(map[string][]string{addr: {"v2.5.2"}}, heightSeries(t))
+		require.Equal(float64(110), gaugeValue(t, addr, "v2.5.2"))
+
+		// the same address keeps a single series as it reports from several peers
+		dm.HandleNodeInfo(context.Background(), "p2", signedNodeInfo(t, privKey, "v2.5.2", 120))
+		require.Equal(map[string][]string{addr: {"v2.5.2"}}, heightSeries(t))
+		require.Equal(float64(120), gaugeValue(t, addr, "v2.5.2"))
+	})
+
+	t.Run("least_recently_updated_address_removed", func(t *testing.T) {
+		require := require.New(t)
+		_nodeInfoHeightGauge.Reset()
+		defer _nodeInfoHeightGauge.Reset()
+		cfg := Config{true, time.Minute, 2}
+		dm := NewInfoManager(&cfg, tMock, hMock, 2500*time.Millisecond)
+		keys := make([]crypto.PrivateKey, 3)
+		for i := range keys {
+			var err error
+			keys[i], err = crypto.GenerateKey()
+			require.NoError(err)
+		}
+		dm.HandleNodeInfo(context.Background(), "p0", signedNodeInfo(t, keys[0], "v1", 1))
+		dm.HandleNodeInfo(context.Background(), "p1", signedNodeInfo(t, keys[1], "v1", 1))
+		// refresh keys[0] so keys[1] is the least recently updated
+		dm.HandleNodeInfo(context.Background(), "p0", signedNodeInfo(t, keys[0], "v1", 2))
+		dm.HandleNodeInfo(context.Background(), "p2", signedNodeInfo(t, keys[2], "v1", 1))
+		series := heightSeries(t)
+		require.Len(series, 2)
+		require.Contains(series, keys[0].PublicKey().Address().String())
+		require.Contains(series, keys[2].PublicKey().Address().String())
+		require.NotContains(series, keys[1].PublicKey().Address().String())
+	})
+}
+
+func TestSanitizeVersion(t *testing.T) {
+	require := require.New(t)
+	require.Equal("v2.5.1.2-3-gabc1234", sanitizeVersion("v2.5.1.2-3-gabc1234"))
+	require.Equal("NoBuildInfo", sanitizeVersion("NoBuildInfo"))
+	require.Equal("v1_0__", sanitizeVersion("v1 0\n\""))
+	require.Equal("v__", sanitizeVersion("vé"))
+	require.Equal(strings.Repeat("a", _maxVersionLabelLen), sanitizeVersion(strings.Repeat("a", 2*_maxVersionLabelLen)))
 }
 
 func TestDelegateManager_BroadcastNodeInfo(t *testing.T) {
