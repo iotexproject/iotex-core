@@ -1,6 +1,8 @@
 package erigonstore
 
 import (
+	"strings"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/state"
@@ -84,12 +86,18 @@ func (rhs *keySplitContractStorage) Batch(keys [][]byte) (state.Iterator, error)
 	return nil, errors.New("not implemented")
 }
 
+// matchStorage returns the storage of the longest prefix matching the key, so
+// the result does not depend on the map iteration order
 func (rhs *keySplitContractStorage) matchStorage(key []byte) ObjectStorage {
-	sk := string(key)
+	var (
+		sk      = string(key)
+		matched = rhs.fallback
+		longest = -1
+	)
 	for prefix, os := range rhs.keyPrefixStorage {
-		if len(sk) >= len(prefix) && sk[:len(prefix)] == prefix {
-			return os
+		if len(prefix) > longest && strings.HasPrefix(sk, prefix) {
+			matched, longest = os, len(prefix)
 		}
 	}
-	return rhs.fallback
+	return matched
 }

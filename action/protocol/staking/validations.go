@@ -218,6 +218,16 @@ func (p *Protocol) validateCandidateEndorsement(ctx context.Context, act *action
 	if featureCtx.EnforceLegacyEndorsement && !act.IsLegacy() {
 		return errors.Wrap(action.ErrInvalidAct, "new candidate endorsement is disabled")
 	}
+	// The wire op field is uint32 while CandidateEndorsementOp is uint8, and
+	// only 0..3 are defined. Anything outside that range can never execute
+	// successfully, so reject it at admission instead of letting it reach the
+	// pool and the draft. This cannot invalidate any block in the chain
+	// history: an out-of-range op never produced a receipt before the
+	// handler's default branch was made to fail soft, and a block carrying one
+	// could never have been minted or validated at all.
+	if !act.IsLegacy() && act.Op() > action.CandidateEndorsementOpRevoke {
+		return errors.Wrap(action.ErrInvalidAct, "invalid candidate endorsement operation")
+	}
 	return nil
 }
 

@@ -722,3 +722,17 @@ func TestExtractRevertMessage(t *testing.T) {
 		})
 	}
 }
+
+func TestNewParamsMalformedContract(t *testing.T) {
+	require := require.New(t)
+	ex := action.NewExecution(identityset.Address(29).String()+"bbb", big.NewInt(0), nil)
+	elp := (&action.EnvelopeBuilder{}).SetNonce(1).SetGasPrice(big.NewInt(10)).
+		SetGasLimit(testutil.TestGasLimit).SetAction(ex).Build()
+	var (
+		ps  *Params
+		err error
+	)
+	require.NotPanics(func() { ps, err = newParams(context.Background(), elp) })
+	require.Nil(ps)
+	require.ErrorContains(err, "invalid contract address")
+}

@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/time/rate"
 
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 )
@@ -152,6 +153,44 @@ func TestWebsocketHandlerServeHTTP(t *testing.T) {
 	r.Equal("2.0", resp.JSONRPC)
 	r.Equal(1, resp.ID)
 	r.Equal("0x1251", resp.Result)
+}
+
+func TestWebsocketHandlerRateLimitPerConnection(t *testing.T) {
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	core := NewMockCoreService(ctrl)
+	core.EXPECT().Track(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	core.EXPECT().EVMNetworkID().Return(uint32(4689)).AnyTimes()
+	core.EXPECT().ChainListener().Return(NewChainListener(10)).AnyTimes()
+
+	web3 := NewWeb3Handler(core, "", _defaultBatchRequestLimit)
+	// one message per minute, burst of one
+	wsHandler := NewWebsocketHandler(core, web3, rate.NewLimiter(rate.Every(time.Minute), 1))
+	srv := httptest.NewServer(wsHandler)
+	defer srv.Close()
+	u := "ws" + strings.TrimPrefix(srv.URL, "http")
+
+	req := []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}`)
+	answered := func(c *websocket.Conn, wait time.Duration) bool {
+		r.NoError(c.WriteMessage(websocket.TextMessage, req))
+		r.NoError(c.SetReadDeadline(time.Now().Add(wait)))
+		_, _, err := c.ReadMessage()
+		return err == nil
+	}
+
+	a, _, err := websocket.DefaultDialer.Dial(u, nil)
+	r.NoError(err)
+	defer a.Close()
+	r.True(answered(a, 5*time.Second), "first message on a connection is within its burst")
+
+	// another client is not held back by the first client's budget
+	b, _, err := websocket.DefaultDialer.Dial(u, nil)
+	r.NoError(err)
+	defer b.Close()
+	r.True(answered(b, 5*time.Second), "second connection waited on the first connection's budget")
+
+	// the limit itself still applies within a connection
+	r.False(answered(a, time.Second), "second message on the same connection was not rate limited")
 }
 
 func TestWebsocketHandlerServeHTTPParseError(t *testing.T) {

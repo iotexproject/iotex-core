@@ -560,7 +560,8 @@ func newfilter(t *testing.T, handler *hTTPHandler) {
 	result := serveTestHTTP(require, handler, "eth_newFilter", `[{"fromBlock":"0x1"}]`)
 	actual, ok := result.(string)
 	require.True(ok)
-	require.Equal("0xe10f7dd489b75a36de8e246eb974827fe86a02ed19d9b475a1600cf4f935feff", actual)
+	require.Len(actual, 66)
+	require.NotEqual(actual, serveTestHTTP(require, handler, "eth_newFilter", `[{"fromBlock":"0x1"}]`))
 }
 
 func newBlockFilter(t *testing.T, handler *hTTPHandler) {
@@ -568,7 +569,8 @@ func newBlockFilter(t *testing.T, handler *hTTPHandler) {
 	result := serveTestHTTP(require, handler, "eth_newBlockFilter", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
-	require.Equal("0x71371f8dbaefc4c96d2534163a1b461951c88520cd32bc03b5bfdfe7340bc187", actual)
+	require.Len(actual, 66)
+	require.NotEqual(actual, serveTestHTTP(require, handler, "eth_newBlockFilter", "[]"))
 }
 
 func getFilterChanges(t *testing.T, handler *hTTPHandler) {

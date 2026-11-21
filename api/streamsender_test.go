@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/v2/action"
 	apitypes "github.com/iotexproject/iotex-core/v2/api/types"
 	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
@@ -197,3 +199,48 @@ type funcResponder struct{ fn func() }
 
 func (f *funcResponder) Respond(_ string, _ *block.Block) error { f.fn(); return nil }
 func (f *funcResponder) Exit()                                  {}
+
+// The websocket listeners share the gRPC listeners' fan-out goroutine, so a
+// websocket client that stops reading must not stall block commitment either.
+func TestWeb3Listeners_StuckConsumerDoesNotStallFanOut(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		new  func(streamHandler) apitypes.Responder
+	}{
+		{"newHeads", NewWeb3BlockListener},
+		{"logs", func(h streamHandler) apitypes.Responder { return NewWeb3LogListener(matchAllFilter(), h) }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := require.New(t)
+			logObj := &action.Log{
+				Address:     identityset.Address(1).String(),
+				Topics:      action.Topics{hash.Hash256b([]byte("topic"))},
+				BlockHeight: 1,
+			}
+			blk := buildBlockWithLogs(t, logObj)
+			ps := blockchain.NewPubSub(2)
+			cl := NewChainListener(10)
+			r.NoError(ps.AddBlockListener(cl))
+
+			release := make(chan struct{})
+			defer close(release)
+			_, err := cl.AddResponder(c.new(func(interface{}) (int, error) { <-release; return 0, nil }))
+			r.NoError(err)
+
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				for i := 0; i < streamSendQueueSize*4; i++ {
+					ps.SendBlockToSubscribers(blk)
+				}
+			}()
+			select {
+			case <-done:
+			case <-time.After(20 * time.Second):
+				t.Fatal("block fan-out stalled behind a stuck websocket subscriber")
+			}
+			r.Eventually(func() bool { return cl.(*chainListener).streamMap.Count() == 0 },
+				5*time.Second, 20*time.Millisecond, "stuck websocket subscription was never evicted")
+		})
+	}
+}

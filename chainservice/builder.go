@@ -347,7 +347,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		store, err = filedao.NewFileDAOInMemForTest()
 	} else {
 		path := builder.cfg.Chain.ChainDBPath
-		uri, err := url.Parse(path)
+		// NOTE: assign to the err declared above rather than declaring a new one.
+		// A ":=" here shadows it for the whole block, and the store-construction
+		// error below would then never reach the "if err != nil" after the block.
+		var uri *url.URL
+		uri, err = url.Parse(path)
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse chain db path %s", path)
 		}
@@ -630,6 +634,42 @@ func (builder *Builder) buildNodeInfoManager() error {
 	return nil
 }
 
+// commitSyncedBlock validates and commits a block received from block sync, retrying
+// the failures that are expected to clear on their own. committed reports whether the
+// block was actually appended: it is false, with a nil error, when the block store has
+// already moved past the block's height, so there is nothing left to do for it.
+func commitSyncedBlock(
+	chain blockchain.Blockchain,
+	blk *block.Block,
+	retries int,
+	opts ...blockchain.BlockValidationOption,
+) (committed bool, err error) {
+	for i := 0; i < retries; i++ {
+		if err = chain.ValidateBlock(blk, opts...); err == nil {
+			if err = chain.CommitBlock(blk); err == nil {
+				return true, nil
+			}
+		}
+		switch errors.Cause(err) {
+		case blockchain.ErrInvalidTipHeight:
+			log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			return false, nil
+		case block.ErrDeltaStateMismatch:
+			log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+		case blockdao.ErrRemoteHeightTooLow:
+			if retries == 1 {
+				retries = 4
+			}
+			log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
+			time.Sleep(100 * time.Millisecond)
+		default:
+			log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			return false, err
+		}
+	}
+	return false, err
+}
+
 func (builder *Builder) buildBlockSyncer() error {
 	if builder.cs.blocksync != nil {
 		return nil
@@ -677,38 +717,18 @@ func (builder *Builder) buildBlockSyncer() error {
 			if !builder.cfg.Genesis.IsHawaii(blk.Height()) {
 				retries = 4
 			}
-			var err error
 			opts := []blockchain.BlockValidationOption{}
 			if now := time.Now(); now.After(blk.Timestamp()) &&
 				blk.Height()+cfg.Genesis.MinBlocksForBlobRetention <= estimateTipHeight(&cfg, blk, now.Sub(blk.Timestamp())) {
 				opts = append(opts, blockchain.SkipSidecarValidationOption())
 			}
-			for i := 0; i < retries; i++ {
-				if err = chain.ValidateBlock(blk, opts...); err == nil {
-					if err = chain.CommitBlock(blk); err == nil {
-						break
-					}
-				}
-				switch errors.Cause(err) {
-				case blockchain.ErrInvalidTipHeight:
-					log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return nil
-				case block.ErrDeltaStateMismatch:
-					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
-				case blockdao.ErrRemoteHeightTooLow:
-					if retries == 1 {
-						retries = 4
-					}
-					log.L().Debug("Remote height too low.", zap.Uint64("height", blk.Height()))
-					time.Sleep(100 * time.Millisecond)
-				default:
-					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return err
-				}
-			}
+			committed, err := commitSyncedBlock(chain, blk, retries, opts...)
 			if err != nil {
 				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 				return err
+			}
+			if !committed {
+				return nil
 			}
 			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
 			consens.Calibrate(blk.Height())
@@ -824,7 +844,11 @@ func (builder *Builder) registerAccountProtocol() error {
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
-	return execution.NewProtocol(nil, rewarding.DepositGas, nil, builder.cfg.ActPool.IsBlackListedFunc(builder.cfg.Genesis.ZanzibarBlockHeight)).Register(builder.cs.registry)
+	// The EIP-7702 authority check runs in block execution, so it reads the
+	// blacklist from genesis; the actpool config only governs admission.
+	blackList, activeHeight, removal := builder.cfg.Genesis.SetCodeAuthorityBlackListParams()
+	isBlackListed := actpool.IsBlackListedFunc(blackList, activeHeight, removal, builder.cfg.Genesis.ZanzibarBlockHeight)
+	return execution.NewProtocol(nil, rewarding.DepositGas, nil, isBlackListed).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
@@ -905,7 +929,6 @@ func (builder *Builder) buildConsensusComponent() error {
 		copts = append(copts, consensus.WithPollProtocol(pollProtocol))
 	}
 
-	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	builderCfg := rp.BuilderConfig{
 		Chain:              builder.cfg.Chain,
 		Consensus:          builder.cfg.Consensus.RollDPoS,
