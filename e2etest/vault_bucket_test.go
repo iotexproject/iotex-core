@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto/signer"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
 	"github.com/iotexproject/iotex-core/v2/server/itx"
+	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -222,8 +223,8 @@ func newVaultChainFixture(t *testing.T) *guardFixture {
 	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
 	cs := svr.ChainService(cfg.Chain.ID)
 	require.NoError(t, cs.Start(ctx))
-	t.Cleanup(func() { require.NoError(t, cs.Stop(ctx)); clearDBPaths(&cfg) })
 	e := &e2etest{cfg: cfg, svr: svr, cs: cs, t: t, nonceMgr: make(accountNonceManager)}
+	t.Cleanup(func() { require.NoError(t, e.cs.Stop(ctx)); clearDBPaths(&cfg) })
 	now := time.Now()
 	return &guardFixture{test: e, chainID: cfg.Chain.ID, domain: bucketguard.NewDomain(cfg.Chain.ID, cfg.Genesis.Hash()), gasLimit: 4_000_000, gasPrice: big.NewInt(unit.Qev*2 + 1), start: now, blockTime: now, pending: map[*actionWithTime]pendingAct{}}
 }
@@ -321,4 +322,174 @@ func vaultWeb3Tx(t *testing.T, f *guardFixture, id int, a *action.VaultAction) *
 	se, err := (&action.Deserializer{}).SetEvmNetworkID(network).ActionToSealedEnvelope(&iotextypes.Action{Core: &iotextypes.ActionCore{ChainID: f.chainID, Action: &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}}}, SenderPubKey: pub.Bytes(), Signature: sig, Encoding: iotextypes.Encoding_TX_CONTAINER})
 	require.NoError(t, err)
 	return &actionWithTime{se, f.tick()}
+}
+
+// vaultCreateForFixture signs the acceptance against the next outer nonce,
+// independently of the global vault index.
+func vaultCreateForFixture(f *guardFixture, id int, key *signer.PrivateKey) *bucketguard.VaultAction {
+	owner := identityset.Address(id)
+	m := &bucketguard.VaultAction{Method: "vaultCreate", Amount: unit.ConvertIotxToRau(500), OwnerTxNonce: f.test.nonceMgr[owner.String()], Guard: bucketguard.NewGuard{AlgID: guardAlg, PublicKey: key.PublicKey().Bytes()}}
+	m.Guard.AcceptSig = mustNoErr(key.Sign([]byte(bucketguard.VaultAcceptContext), bucketguard.EncodeVaultAccept(f.domain, 0, m.OwnerTxNonce, 1, owner.Bytes(), bucketguard.UnbindDelayBlocks, guardAlg, m.Guard.PublicKey, [64]byte{})))
+	return m
+}
+
+func submitVaultTx(t *testing.T, f *guardFixture, tx *actionWithTime) *action.Receipt {
+	t.Helper()
+	_, receipt, _, err := addOneTx(context.Background(), f.test.cs.ActionPool(), f.test.cs.Blockchain(), tx)
+	require.NoError(t, err)
+	require.NotNil(t, receipt)
+	require.EqualValues(t, iotextypes.ReceiptStatus_Success, receipt.Status)
+	return receipt
+}
+
+func vaultPoolBalance(t *testing.T, f *guardFixture) *big.Int {
+	t.Helper()
+	pool := bucketguard.VaultPool()
+	acct, err := accountutil.LoadAccount(f.test.cs.StateFactory(), mustNoErr(address.FromBytes(pool[:])))
+	require.NoError(t, err)
+	return new(big.Int).Set(acct.Balance)
+}
+
+func TestVaultBucketForkBoundary(t *testing.T) {
+	f := newVaultChainFixture(t)
+	const id = 3
+	key := guardKey(0x54)
+	submitVaultTx(t, f, f.register(1, "cand1"))
+	submitVaultTx(t, f, f.createStake(id, "cand1", guardStakeAmount))
+	for f.test.cs.Blockchain().TipHeight() < guardFork-2 {
+		submitVaultTx(t, f, f.createStake(id, "cand1", guardStakeAmount))
+	}
+	// Admission evaluates fork-1, which is still strictly pre-fork.
+	require.Less(t, f.test.cs.Blockchain().TipHeight()+1, uint64(guardFork))
+	m := vaultCreateForFixture(f, id, key)
+	a := mustNoErr(action.NewVaultAction(m))
+	tx := f.sign(id, m.OwnerTxNonce, a)
+	ctx := mustNoErr(f.test.cs.Blockchain().Context(context.Background()))
+	err := f.test.cs.ActionPool().Add(ctx, tx)
+	require.ErrorContains(t, err, "bucket guard is disabled")
+	require.Zero(t, f.test.cs.ActionPool().GetSize())
+	require.Zero(t, vaultPoolBalance(t, f).Sign())
+	_, err = staking.ReadVaultBucket(f.test.cs.StateFactory(), 0)
+	require.ErrorIs(t, err, state.ErrStateNotExist)
+	// Mine to fork-1, then execute the identical operation in the fork block.
+	for f.test.cs.Blockchain().TipHeight() < guardFork-1 {
+		submitVaultTx(t, f, f.createStake(id, "cand1", guardStakeAmount))
+	}
+	require.EqualValues(t, guardFork-1, f.test.cs.Blockchain().TipHeight())
+	a = mustNoErr(action.NewVaultAction(vaultCreateForFixture(f, id, key)))
+	submitVaultTx(t, f, vaultWeb3Tx(t, f, id, a))
+	require.EqualValues(t, guardFork, f.test.cs.Blockchain().TipHeight())
+	v, err := staking.ReadVaultBucket(f.test.cs.StateFactory(), 0)
+	require.NoError(t, err)
+	require.Equal(t, unit.ConvertIotxToRau(500).Bytes(), v.Amount)
+	require.Equal(t, unit.ConvertIotxToRau(500), vaultPoolBalance(t, f))
+}
+
+func TestVaultBucketRestartPersistence(t *testing.T) {
+	f := newVaultChainFixture(t)
+	const id = 3
+	owner := identityset.Address(id)
+	key := guardKey(0x55)
+	submitVaultTx(t, f, f.register(1, "cand1"))
+	for f.test.cs.Blockchain().TipHeight() < guardFork-1 {
+		submitVaultTx(t, f, f.createStake(id, "cand1", guardStakeAmount))
+	}
+	send := func(m *bucketguard.VaultAction) {
+		t.Helper()
+		a := mustNoErr(action.NewVaultAction(m))
+		submitVaultTx(t, f, vaultWeb3Tx(t, f, id, a))
+	}
+	for i := 0; i < 3; i++ {
+		send(vaultCreateForFixture(f, id, key))
+	}
+	withdraw := func(index uint64, amount *big.Int) *bucketguard.VaultAction {
+		t.Helper()
+		v := mustNoErr(staking.ReadVaultBucket(f.test.cs.StateFactory(), index))
+		g := mustNoErr(staking.ReadVaultGuard(f.test.cs.StateFactory(), index))
+		h := f.test.cs.Blockchain().TipHeight()
+		c := bucketguard.VaultCall{VaultIndex: index, Generation: g.Generation, GuardNonce: g.GuardNonce, Deadline: h + 100, AnchorHeight: h, AnchorHash: f.blockHash(h), Op: bucketguard.VaultOpWithdraw, Amount: amount, Recipient: identityset.Address(5).Bytes()}
+		c.Sig = mustNoErr(key.Sign([]byte(bucketguard.VaultCallContext), bucketguard.EncodeVaultCall(f.domain, v.Owner, g.KeyID(), &c)))
+		return &bucketguard.VaultAction{Method: "vaultWithdraw", Index: index, Call: c}
+	}
+	send(&bucketguard.VaultAction{Method: "vaultInitiateExit", Index: 1})
+	send(withdraw(2, unit.ConvertIotxToRau(500))) // Closed: principal removed, guard tombstone retained.
+	const bucketIndex = 1
+	bind := &bucketguard.VaultAction{Method: "bindBucketGuardV2", Index: bucketIndex, UnbindDelay: bucketguard.UnbindDelayBlocks, Guard: bucketguard.NewGuard{AlgID: guardAlg, PublicKey: key.PublicKey().Bytes()}}
+	bind.Guard.AcceptSig = mustNoErr(key.Sign([]byte(bucketguard.AcceptContext), bucketguard.EncodeAcceptBV2(f.domain, bucketIndex, 1, owner.Bytes(), bind.UnbindDelay, guardAlg, bind.Guard.PublicKey, [64]byte{})))
+	send(bind)
+	send(&bucketguard.VaultAction{Method: "guardUnbindInitiate", Index: bucketIndex})
+	g := mustNoErr(staking.ReadStakingGuardV2(f.test.cs.StateFactory(), bucketIndex))
+	require.NotNil(t, g.Pending)
+	h := f.test.cs.Blockchain().TipHeight()
+	cancel := &bucketguard.VaultAction{Method: "guardUnbindCancel", Index: bucketIndex, RequestID: g.Pending.RequestID, Call: bucketguard.VaultCall{Generation: g.Generation, Deadline: h + 100, AnchorHeight: h, AnchorHash: f.blockHash(h)}}
+	cancel.Call.Sig = mustNoErr(key.Sign([]byte(bucketguard.GuardCancelContext), bucketguard.EncodeGuardCancel(f.domain, &bucketguard.GuardCancel{BucketIndex: bucketIndex, Generation: g.Generation, RequestID: cancel.RequestID, Deadline: cancel.Call.Deadline, AnchorHeight: h, AnchorHash: cancel.Call.AnchorHash})))
+	send(cancel)
+
+	// Snapshot complete canonical records, including pending exit and tombstone.
+	snapshot := func() [][]byte {
+		t.Helper()
+		sf := f.test.cs.StateFactory()
+		var records [][]byte
+		for i := uint64(0); i < 3; i++ {
+			v, err := staking.ReadVaultBucket(sf, i)
+			if i == 2 {
+				require.ErrorIs(t, err, state.ErrStateNotExist)
+			} else {
+				require.NoError(t, err)
+				records = append(records, mustNoErr(v.Serialize()))
+			}
+			g := mustNoErr(staking.ReadVaultGuard(sf, i))
+			switch i {
+			case 0:
+				require.Nil(t, g.Pending)
+				require.NotEmpty(t, g.PublicKey)
+			case 1:
+				require.NotNil(t, g.Pending)
+			case 2:
+				require.Empty(t, g.PublicKey)
+				require.Nil(t, g.Pending)
+			}
+			records = append(records, mustNoErr(g.Serialize()))
+		}
+		g := mustNoErr(staking.ReadStakingGuardV2(sf, bucketIndex))
+		require.Nil(t, g.Pending)
+		require.NotZero(t, g.CancelCooldown)
+		records = append(records, mustNoErr(g.Serialize()))
+		meta := new(staking.VaultMetaRecord)
+		_, err := sf.State(meta, protocol.NamespaceOption(state.StakingNamespace), protocol.KeyOption([]byte{bucketguard.VaultMetaPrefix}))
+		require.NoError(t, err)
+		require.EqualValues(t, 3, meta.TotalVaultCount)
+		return append(records, mustNoErr(meta.Serialize()))
+	}
+	height, records, pool := f.test.cs.Blockchain().TipHeight(), snapshot(), vaultPoolBalance(t, f)
+	require.Equal(t, unit.ConvertIotxToRau(1000), pool)
+	cfg := f.test.cfg // Reuse every DB path; no cleanup or genesis reinitialization.
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{}))
+	require.NoError(t, f.test.cs.Stop(ctx))
+	svr, err := itx.NewServer(cfg)
+	require.NoError(t, err)
+	cs := svr.ChainService(cfg.Chain.ID)
+	f.test.svr, f.test.cs = svr, cs // Fixture cleanup stops the replacement service.
+	require.NoError(t, cs.Start(ctx))
+	require.Equal(t, height, cs.Blockchain().TipHeight())
+	require.Equal(t, records, snapshot())
+	require.Equal(t, pool, vaultPoolBalance(t, f))
+
+	send(withdraw(0, unit.ConvertIotxToRau(100)))
+	v := mustNoErr(staking.ReadVaultBucket(cs.StateFactory(), 0))
+	require.Equal(t, unit.ConvertIotxToRau(400).Bytes(), v.Amount)
+	send(&bucketguard.VaultAction{Method: "vaultCancelExit", Index: 1})
+	g = mustNoErr(staking.ReadVaultGuard(cs.StateFactory(), 1))
+	require.Nil(t, g.Pending)
+	send(vaultCreateForFixture(f, id, key))
+	v = mustNoErr(staking.ReadVaultBucket(cs.StateFactory(), 3))
+	require.EqualValues(t, 3, v.VaultIndex)
+	require.Equal(t, owner.Bytes(), v.Owner)
+	require.Equal(t, unit.ConvertIotxToRau(500).Bytes(), v.Amount)
+	meta := new(staking.VaultMetaRecord)
+	_, err = cs.StateFactory().State(meta, protocol.NamespaceOption(state.StakingNamespace), protocol.KeyOption([]byte{bucketguard.VaultMetaPrefix}))
+	require.NoError(t, err)
+	require.EqualValues(t, 4, meta.TotalVaultCount)
+	require.Equal(t, unit.ConvertIotxToRau(1400), vaultPoolBalance(t, f))
 }
