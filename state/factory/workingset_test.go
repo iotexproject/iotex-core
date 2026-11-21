@@ -7,12 +7,15 @@ package factory
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -248,10 +251,10 @@ func TestWorkingSet_ValidateBlock_RecoversPanic(t *testing.T) {
 }
 
 // TestWorkingSet_Mint_RecoversActionPanic verifies that a panic raised while running a
-// single pending action during minting is recovered into an error (the draft is discarded,
-// same as today) and that the offending sender is evicted from the pool — so the next mint
-// attempt no longer sees the poison action, turning what would otherwise be a persistent
-// block-production stall into a one-time lost draft.
+// single pending action during minting is recovered, and that the offending action is
+// dropped from the draft and its sender evicted from the pool, while the draft itself is
+// still minted — so a poison action neither crashes the mint goroutine nor stalls block
+// production.
 func TestWorkingSet_Mint_RecoversActionPanic(t *testing.T) {
 	require := require.New(t)
 	registry := protocol.NewRegistry()
@@ -301,14 +304,20 @@ func TestWorkingSet_Mint_RecoversActionPanic(t *testing.T) {
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
-	// the panic must be recovered and surfaced as an error, not crash the mint goroutine,
-	// and the poison action's sender must be evicted from the pool (see ap.EXPECT().DeleteAction above)
-	var mintErr error
+	// the panic must be recovered, not crash the mint goroutine, the poison action must be
+	// left out of the block, and its sender must be evicted from the pool (see
+	// ap.EXPECT().DeleteAction above)
+	var (
+		blk     *block.Block
+		mintErr error
+	)
 	require.NotPanics(func() {
-		_, mintErr = f.Mint(ctx, ap, identityset.PrivateKey(27))
+		blk, mintErr = f.Mint(ctx, ap, identityset.PrivateKey(27))
 	})
-	require.Error(mintErr)
-	require.Contains(mintErr.Error(), "recovered from panic")
+	require.NoError(mintErr)
+	for _, act := range blk.Actions {
+		require.NotEqual(sender.String(), act.SenderAddress().String())
+	}
 }
 
 // floorDataGasShortfallWorkingSet builds a working set past Yap, with the next
@@ -1128,4 +1137,120 @@ func indexOfLast(ops []string, want string) int {
 		}
 	}
 	return -1
+}
+
+// TestWorkingSet_Mint_SkipsLossyTxContainer checks that a tx container whose
+// unfolded native action does not rebuild the signed eth tx (here: trailing
+// calldata the ABI decoder ignores) is left out of the block and its sender
+// evicted. Validators rebuild the eth tx from the stored action to recover the
+// sender, so including it would produce a block nobody can decode.
+func TestWorkingSet_Mint_SkipsLossyTxContainer(t *testing.T) {
+	require := require.New(t)
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	require.NoError(rewarding.NewProtocol(genesis.TestDefault().Rewarding).Register(registry))
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	good, bad := identityset.Address(28), identityset.Address(29)
+	cfg.Genesis.InitBalanceMap[good.String()] = "100000000000000000000"
+	cfg.Genesis.InitBalanceMap[bad.String()] = "100000000000000000000"
+	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f.Start(startCtx))
+	defer func() { require.NoError(f.Stop(startCtx)) }()
+
+	evmNetworkID := cfg.Chain.EVMNetworkID
+	deposit, err := action.NewDepositToRewardingFund(big.NewInt(1), nil).EthData()
+	require.NoError(err)
+	signTx := func(signer int, data []byte) *types.Transaction {
+		to := common.BytesToAddress(address.RewardingProtocolAddrHash[:])
+		return types.MustSignNewTx(identityset.PrivateKey(signer).EcdsaPrivateKey().(*ecdsa.PrivateKey),
+			types.NewEIP155Signer(big.NewInt(int64(evmNetworkID))),
+			&types.LegacyTx{Nonce: 1, GasPrice: big.NewInt(0), Gas: 100000, To: &to, Value: big.NewInt(0), Data: data})
+	}
+	newContainer := func(tx *types.Transaction) *action.SealedEnvelope {
+		raw, err := tx.MarshalBinary()
+		require.NoError(err)
+		_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		require.NoError(err)
+		selp, err := (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(&iotextypes.Action{
+			Core: &iotextypes.ActionCore{
+				ChainID: 1,
+				Action:  &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}},
+			},
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		})
+		require.NoError(err)
+		return selp
+	}
+	canonical := newContainer(signTx(28, deposit))
+	canonicalHash, err := canonical.Hash()
+	require.NoError(err)
+	// decode refuses a lossy container, so decode a canonical one with the lossy
+	// tx's signature, then swap the lossy tx into it in place
+	lossyTx := signTx(29, append(append([]byte{}, deposit...), make([]byte, 32)...))
+	lossyRaw, err := lossyTx.MarshalBinary()
+	require.NoError(err)
+	_, lossySig, lossyPub, err := action.ExtractTypeSigPubkey(lossyTx)
+	require.NoError(err)
+	pb := newContainer(signTx(29, deposit)).Proto()
+	pb.SenderPubKey, pb.Signature = lossyPub.Bytes(), lossySig
+	lossy, err := (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(pb)
+	require.NoError(err)
+	inner, err := lossy.Envelope.ToEthTx()
+	require.NoError(err)
+	require.NoError(inner.UnmarshalBinary(lossyRaw))
+	lossyHash, err := lossy.Hash()
+	require.NoError(err)
+	require.Equal(lossyTx.Hash().Bytes(), lossyHash[:])
+
+	ctrl := gomock.NewController(t)
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().BundlePool().Return(nil).Times(1)
+	ap.EXPECT().PendingActionMap().Return(map[string][]*action.SealedEnvelope{
+		good.String(): {canonical},
+		bad.String():  {lossy},
+	}).Times(1)
+	ap.EXPECT().DeleteAction(gomock.Any()).Do(func(addr address.Address) {
+		require.Equal(bad.String(), addr.String())
+	}).Times(1)
+
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: uint64(1),
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit * 100000,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{ChainID: 1, EvmNetworkID: evmNetworkID},
+	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+
+	blk, err := f.Mint(ctx, ap, identityset.PrivateKey(27))
+	require.NoError(err)
+	// the minted block decodes on a validator
+	_, err = (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID).FromBlockProto(blk.ConvertToBlockPb())
+	require.NoError(err)
+	var (
+		hashes  []hash.Hash256
+		senders []string
+	)
+	for _, selp := range blk.Actions {
+		h, err := selp.Hash()
+		require.NoError(err)
+		hashes = append(hashes, h)
+		senders = append(senders, selp.SenderAddress().String())
+	}
+	require.Contains(hashes, canonicalHash)
+	require.NotContains(senders, bad.String())
 }

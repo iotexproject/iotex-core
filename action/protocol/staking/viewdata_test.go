@@ -86,4 +86,6 @@ func TestViewData_Snapshot_Revert(t *testing.T) {
 	require.Equal(t, 1, len(viewData.snapshots))
 	require.NoError(t, viewData.Revert(ss))
 	require.Equal(t, 0, len(viewData.snapshots))
+	// the snapshot is consumed by the revert
+	require.ErrorContains(t, viewData.Revert(ss), "already reverted")
 }

@@ -156,20 +156,27 @@ func (views *views) Snapshot() int {
 	return views.snapshotID
 }
 
+// Revert rolls every view back to snapshot id and consumes it, along with
+// every snapshot taken after it. A view may hand a consumed snapshot's index
+// out again (the staking view does), so reverting to id a second time could
+// restore a later state; it is refused instead.
 func (views *views) Revert(id int) error {
 	if id > views.snapshotID || id < 0 {
 		return errors.Errorf("invalid snapshot id %d, max id is %d", id, views.snapshotID)
 	}
-	for k, v := range views.snapshots[id] {
+	snapshot, ok := views.snapshots[id]
+	if !ok {
+		return errors.Errorf("snapshot id %d has already been reverted", id)
+	}
+	for k, v := range snapshot {
 		if err := views.vm[k].Revert(v); err != nil {
 			return err
 		}
 	}
-	views.snapshotID = id
-	// clean up snapshots that are not needed anymore
-	for i := id + 1; i <= views.snapshotID; i++ {
+	for i := id; i <= views.snapshotID; i++ {
 		delete(views.snapshots, i)
 	}
+	views.snapshotID = id
 	return nil
 }
 
