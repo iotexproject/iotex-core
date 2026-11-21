@@ -76,3 +76,69 @@ func TestVoteView(t *testing.T) {
 		require.Equal(buckets, migratedBuckets)
 	})
 }
+
+// candidateVotesChainDepth counts the wrapper layers stacked on top of the
+// committed candidate votes.
+func candidateVotesChainDepth(cv CandidateVotes) int {
+	depth := 0
+	for {
+		switch w := cv.(type) {
+		case *candidateVotesWraperCommitInClone:
+			depth++
+			cv = w.base
+		case *candidateVotesWraper:
+			depth++
+			cv = w.base
+		default:
+			return depth
+		}
+	}
+}
+
+func TestVoteViewChainDepth(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// mainnet SystemStakingContractHeight
+	const startHeight = uint64(24486464)
+	mockIndexer := staking.NewMockContractStakingIndexer(ctrl)
+	mockIndexer.EXPECT().StartHeight().Return(startHeight).AnyTimes()
+	newView := func(height uint64) *voteView {
+		return NewVoteView(
+			mockIndexer,
+			&VoteViewConfig{ContractAddr: identityset.Address(0)},
+			height,
+			AggregateCandidateVotes(nil, nil),
+			nil,
+			NewCandidateVotesManager(identityset.Address(0)),
+			nil,
+		).(*voteView)
+	}
+
+	t.Run("below deploy height the chain stays flat", func(t *testing.T) {
+		// replay blocks the way the factory does below OkhotskBlockHeight: one
+		// Fork per block, one Wrap per action snapshot, and never a Commit.
+		v := newView(1000)
+		base := v.cur
+		for h := uint64(1001); h <= 2000; h++ {
+			v = v.Fork().(*voteView)
+			require.NoError(v.CreatePreStates(protocol.WithBlockCtx(
+				context.Background(), protocol.BlockCtx{BlockHeight: h})))
+			for i := 0; i < 4; i++ {
+				v = v.Wrap().(*voteView)
+			}
+			require.False(v.IsDirty())
+		}
+		require.Zero(candidateVotesChainDepth(v.cur))
+		require.Same(base, v.cur)
+	})
+
+	t.Run("from deploy height the chain layers as before", func(t *testing.T) {
+		v := newView(startHeight - 1)
+		v = v.Fork().(*voteView)
+		require.Equal(1, candidateVotesChainDepth(v.cur))
+		v = v.Wrap().(*voteView)
+		require.Equal(2, candidateVotesChainDepth(v.cur))
+	})
+}
