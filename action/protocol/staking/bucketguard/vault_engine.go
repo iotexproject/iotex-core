@@ -195,14 +195,13 @@ func (m *VaultCall) Validate() error {
 		len(m.Sig) != pqcrypto.AlgSLHDSA192s.SignatureSize() || (len(m.Sponsor) > 0 && !validAddress(m.Sponsor)) {
 		return ErrMalformed
 	}
-	pool := VaultPool()
 	switch m.Op {
 	case VaultOpWithdraw:
-		if m.Amount.Sign() == 0 || !validAddress(m.Recipient) || bytes.Equal(m.Recipient, pool[:]) || len(m.NewOwner) > 0 || m.NewGuard != nil {
+		if m.Amount.Sign() == 0 || !validAddress(m.Recipient) || forbiddenVaultAddress(m.Recipient) || len(m.NewOwner) > 0 || m.NewGuard != nil {
 			return ErrMalformed
 		}
 	case VaultOpRotateOwner:
-		if m.Amount.Sign() != 0 || len(m.Recipient) > 0 || !validAddress(m.NewOwner) || forbiddenVaultOwner(m.NewOwner) || m.NewGuard != nil {
+		if m.Amount.Sign() != 0 || len(m.Recipient) > 0 || !validAddress(m.NewOwner) || forbiddenVaultAddress(m.NewOwner) || m.NewGuard != nil {
 			return ErrMalformed
 		}
 	case VaultOpRotateGuard:
@@ -222,7 +221,7 @@ func (m *VaultCall) Validate() error {
 	return nil
 }
 
-func forbiddenVaultOwner(a []byte) bool {
+func forbiddenVaultAddress(a []byte) bool {
 	// §6's exact native protocol address list, extended by §13's vaultPool.
 	for _, name := range []string{"account", "staking", "rewarding", "poll", "rolldpos", "smart_contract", "bucketPool", "vaultPool"} {
 		h := vaultHash160([]byte(name))

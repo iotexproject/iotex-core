@@ -257,6 +257,28 @@ func TestVaultCreatePoPRaces(t *testing.T) {
 	assertVaultUnchanged(t, before, e)
 }
 
+func TestVaultForbiddenAddresses(t *testing.T) {
+	e, k, _ := vaultFixture(t)
+	for _, name := range []string{"account", "staking", "rewarding", "poll", "rolldpos", "smart_contract", "bucketPool", "vaultPool"} {
+		t.Run(name, func(t *testing.T) {
+			recipient := vaultHash160([]byte(name))
+			m := unsignedVaultCall(e, 0, VaultOpWithdraw, 101)
+			m.Amount.SetInt64(100)
+			m.Recipient = recipient[:]
+			signVaultCall(t, e, k, m)
+			vaultError(t, m.Validate(), ErrMalformed)
+			before := cloneVaultEngine(e)
+			vaultError(t, e.VaultWithdraw(vaultEnv(1, 101), m), ErrMalformed)
+			assertVaultUnchanged(t, before, e)
+
+			m.Op = VaultOpRotateOwner
+			m.Amount = new(big.Int)
+			m.NewOwner, m.Recipient = m.Recipient, nil
+			vaultError(t, m.Validate(), ErrMalformed)
+		})
+	}
+}
+
 func TestVaultAdversarialWithdraw(t *testing.T) {
 	base, k, _ := vaultFixture(t)
 	good := withdrawCall(t, base, k, 100, 101)

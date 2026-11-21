@@ -193,7 +193,7 @@ func (e *VaultEngine) StakingGuardedOp(env OpEnv, m *GuardedBucketOp, checkNativ
 	}
 	pool := VaultPool()
 	if bytes.Equal(m.Recipient, pool[:]) || bytes.Equal(m.NewOwner, pool[:]) ||
-		(m.ClearGuard && forbiddenVaultOwner(m.NewOwner)) {
+		(m.ClearGuard && forbiddenVaultAddress(m.NewOwner)) {
 		return ErrMalformed
 	}
 	if m.Op == OpTransfer && bytes.Equal(m.NewOwner, v.Owner) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
@@ -121,6 +122,39 @@ func TestVaultBucketHandlerBoundaries(t *testing.T) {
 	account, err := accountutil.LoadAccount(sm, poolAddr)
 	require.NoError(t, err)
 	require.Equal(t, create.Amount, account.Balance)
+	for _, name := range []string{"account", "staking", "rewarding", "poll", "rolldpos", "smart_contract", "bucketPool", "vaultPool"} {
+		t.Run("withdraw to "+name, func(t *testing.T) {
+			recipient := hash.Hash160b([]byte(name))
+			anchor, err := testBlockHash(9)
+			require.NoError(t, err)
+			guardBefore, err := ReadVaultGuard(sm, 0)
+			require.NoError(t, err)
+			vaultBefore, err := ReadVaultBucket(sm, 0)
+			require.NoError(t, err)
+			m := &bucketguard.VaultAction{Method: "vaultWithdraw", Call: bucketguard.VaultCall{
+				Op: bucketguard.VaultOpWithdraw, Generation: guardBefore.Generation, GuardNonce: guardBefore.GuardNonce,
+				Deadline: 20, AnchorHeight: 9, AnchorHash: anchor[:], Amount: unit.ConvertIotxToRau(100), Recipient: recipient[:],
+			}}
+			m.Call.Sig, err = k.Sign([]byte(bucketguard.VaultCallContext), bucketguard.EncodeVaultCall(guardDomain(ctx), owner.Bytes(), guardBefore.KeyID(), &m.Call))
+			require.NoError(t, err)
+			a, err := action.NewVaultAction(m)
+			require.NoError(t, err)
+			elp := (&action.EnvelopeBuilder{}).SetNonce(ac.Nonce).SetGasLimit(4_000_000).SetAction(a).Build()
+			require.ErrorIs(t, p.PreflightBucketGuard(ctx, elp, sm), bucketguard.ErrMalformed)
+			var rejection *handleError
+			require.ErrorAs(t, run(m), &rejection)
+			require.ErrorIs(t, rejection.err, bucketguard.ErrMalformed)
+			guardAfter, err := ReadVaultGuard(sm, 0)
+			require.NoError(t, err)
+			require.Equal(t, guardBefore, guardAfter)
+			vaultAfter, err := ReadVaultBucket(sm, 0)
+			require.NoError(t, err)
+			require.Equal(t, vaultBefore, vaultAfter)
+			poolAfter, err := accountutil.LoadAccount(sm, poolAddr)
+			require.NoError(t, err)
+			require.Equal(t, create.Amount, poolAfter.Balance)
+		})
+	}
 	require.NoError(t, run(&bucketguard.VaultAction{Method: "vaultInitiateExit"}))
 	guard, err := ReadVaultGuard(sm, 0)
 	require.NoError(t, err)
