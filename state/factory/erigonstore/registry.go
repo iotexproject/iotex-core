@@ -103,6 +103,12 @@ func init() {
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.VoteBucket{}, StakingBucketsContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.Endorsement{}, EndorsementContractIndex))
 	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.BucketIndices{}, BucketIndicesContractIndex))
+	// IIP-65 §4: the guard record is registered explicitly. It stays on the
+	// staking namespace's contract, which it used through the namespace entry
+	// before, so no stored record moves. A new contract index would not exist
+	// in Erigon databases created before it, since system contracts are only
+	// deployed at genesis.
+	assertions.MustNoError(storageRegistry.RegisterObjectStorage(state.StakingNamespace, &staking.BucketGuardRecord{}, BucketPoolContractIndex))
 }
 
 // GetObjectStorageRegistry returns the global object storage registry

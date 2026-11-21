@@ -129,7 +129,7 @@ func (p *Protocol) AddDepositForCompound(
 
 	prevWeighted := p.calculateVoteWeight(bucket, selfStake)
 	bucket.StakedAmount = new(big.Int).Add(bucket.StakedAmount, amount)
-	if err := csm.updateBucket(bucketID, bucket); err != nil {
+	if err := csm.updateBucket(bucketID, bucket, legacyAuth); err != nil {
 		return errors.Wrapf(err, "staking: update compound bucket %d", bucketID)
 	}
 
