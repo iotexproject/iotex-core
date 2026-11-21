@@ -57,10 +57,6 @@ func deposit(args []string) error {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		gasLimit = action.DepositToRewardingFundBaseGas +
-			action.DepositToRewardingFundGasPerByte*uint64(len(payload))
-	}
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
 		return output.NewError(0, "failed to get gasPriceRau", err)

@@ -88,10 +88,6 @@ func transfer(args []string) error {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		gasLimit = action.TransferBaseIntrinsicGas +
-			action.TransferPayloadGas*uint64(len(payload))
-	}
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
 		return output.NewError(0, "failed to get gas price", err)

@@ -119,9 +119,6 @@ func doEndorsement(bucketIndex uint64, op action.CandidateEndorsementOp) error {
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		gasLimit = action.CandidateEndorsementBaseIntrinsicGas
-	}
 
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
