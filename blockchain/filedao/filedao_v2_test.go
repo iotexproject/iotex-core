@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -21,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
+	"github.com/iotexproject/iotex-core/v2/db/batch"
 	"github.com/iotexproject/iotex-core/v2/pkg/compress"
 	"github.com/iotexproject/iotex-core/v2/testutil"
 )
@@ -69,8 +71,10 @@ func TestNewFileDAOv2(t *testing.T) {
 				data, err = compress.Compress(ser, test.compress)
 				r.NoError(err)
 			}
-			r.NoError(addOneEntryToBatch(fd.hashStore, data, fd.batch))
-			r.NoError(fd.kvStore.WriteBatch(fd.batch))
+			b := batch.NewBatch()
+			apply := fd.hashStore.AddToBatch(b, data)
+			r.NoError(fd.kvStore.WriteBatch(b))
+			apply()
 			v, err := fd.hashStore.Get(test.height)
 			r.NoError(err)
 			r.Equal(data, v)
@@ -414,6 +418,205 @@ func TestBlockWithSidecar(t *testing.T) {
 			t.Run("test block with sidecar", func(t *testing.T) {
 				testBlockWithSidecar(cfg, start, r)
 			})
+		}
+	}
+}
+
+type failingWriteKVStore struct {
+	db.KVStore
+}
+
+func (failingWriteKVStore) WriteBatch(batch.KVStoreBatch) error {
+	return errors.New("write failed")
+}
+
+func TestFileDAOv2FailedWrite(t *testing.T) {
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
+	ctx := context.Background()
+	builder := block.NewTestingBuilder()
+	h := hash.ZeroHash256
+	blks := make([]*block.Block, 0, 3*_blockStoreBatchSize)
+	for i := uint64(1); i <= 3*_blockStoreBatchSize; i++ {
+		blk := createTestingBlock(builder, i, h)
+		blks = append(blks, blk)
+		h = blk.HashBlock()
+	}
+	// checkBlocks checks the tip and every data relation of blks
+	checkBlocks := func(r *require.Assertions, fd *fileDAOv2, blks []*block.Block) {
+		height, err := fd.Height()
+		r.NoError(err)
+		r.Equal(uint64(len(blks)), height)
+		r.Equal(blks[len(blks)-1].HashBlock(), fd.loadTip().Hash)
+		for _, want := range blks {
+			got, err := fd.GetBlockByHeight(want.Height())
+			r.NoError(err)
+			r.Equal(want.HashBlock(), got.HashBlock())
+			h, err := fd.GetBlockHash(want.Height())
+			r.NoError(err)
+			r.Equal(want.HashBlock(), h)
+			height, err := fd.GetBlockHeight(want.HashBlock())
+			r.NoError(err)
+			r.Equal(want.Height(), height)
+			receipts, err := fd.GetReceipts(want.Height())
+			r.NoError(err)
+			r.Equal(want.Height(), receipts[0].BlockHeight)
+			wantLog, err := block.DeserializeSystemLogPb(want.TransactionLog().Serialize())
+			r.NoError(err)
+			r.NotEmpty(wantLog.Logs)
+			gotLog, err := fd.TransactionLogs(want.Height())
+			r.NoError(err)
+			r.True(proto.Equal(wantLog, gotLog))
+		}
+	}
+	// checkNotWritten checks that nothing of blk can be read
+	checkNotWritten := func(r *require.Assertions, fd *fileDAOv2, blk *block.Block) {
+		_, err := fd.GetBlockByHeight(blk.Height())
+		r.ErrorIs(err, db.ErrNotExist)
+		_, err = fd.GetReceipts(blk.Height())
+		r.ErrorIs(err, db.ErrNotExist)
+		_, err = fd.TransactionLogs(blk.Height())
+		r.ErrorIs(err, ErrNotSupported)
+		_, err = fd.GetBlockHeight(blk.HashBlock())
+		r.ErrorIs(err, db.ErrNotExist)
+		_, err = fd.GetBlockHash(blk.Height())
+		r.ErrorIs(err, db.ErrNotExist)
+	}
+	indexSizes := func(fd *fileDAOv2) []uint64 {
+		return []uint64{fd.hashStore.Size(), fd.blkStore.Size(), fd.sysStore.Size()}
+	}
+	bufferSlots := func(fd *fileDAOv2) []*block.Store {
+		fd.blkBuffer.lock.RLock()
+		defer fd.blkBuffer.lock.RUnlock()
+		return append([]*block.Store{}, fd.blkBuffer.buffer...)
+	}
+	// checkBufferRound checks that the staging buffer of a reopened file holds
+	// exactly the blocks of the current round
+	checkBufferRound := func(r *require.Assertions, fd *fileDAOv2, blks []*block.Block) {
+		tip := uint64(len(blks))
+		roundStart := tip - (tip-fd.header.Start+1)%fd.header.BlockStoreSize + 1
+		for i, v := range bufferSlots(fd) {
+			height := roundStart + uint64(i)
+			if height > tip {
+				r.Nil(v, "slot %d", i)
+				continue
+			}
+			r.NotNil(v, "slot %d", i)
+			r.Equal(blks[height-1].HashBlock(), v.Block.HashBlock(), "slot %d", i)
+		}
+	}
+	// failCompressAt makes the n-th compression from now on fail, PutBlock
+	// compresses the block first and then the transaction log
+	failCompressAt := func(r *require.Assertions, n int) func() {
+		calls := 0
+		_compress = func(v []byte, comp string) ([]byte, error) {
+			calls++
+			if calls == n {
+				return nil, errors.New("compress failed")
+			}
+			return compress.Compress(v, comp)
+		}
+		return func() {
+			_compress = compress.Compress
+			r.GreaterOrEqual(calls, n, "compression did not fail")
+		}
+	}
+
+	for _, f := range []struct {
+		name   string
+		inject func(*require.Assertions, *fileDAOv2) (restore func())
+	}{
+		{
+			"write batch fails",
+			func(_ *require.Assertions, fd *fileDAOv2) func() {
+				kv := fd.kvStore
+				fd.kvStore = failingWriteKVStore{kv}
+				return func() { fd.kvStore = kv }
+			},
+		},
+		{
+			// fails in putBlock, after the hash index entry is in the batch
+			"block compression fails",
+			func(r *require.Assertions, _ *fileDAOv2) func() { return failCompressAt(r, 1) },
+		},
+		{
+			// fails in putTransactionLog, after putBlock has returned its apply
+			"transaction log compression fails",
+			func(r *require.Assertions, _ *fileDAOv2) func() { return failCompressAt(r, 2) },
+		},
+	} {
+		for _, c := range []struct {
+			name   string
+			height uint64
+		}{
+			{"staging buffer not full", _blockStoreBatchSize + 4},
+			{"staging buffer full", 2 * _blockStoreBatchSize},
+		} {
+			for _, reopen := range []bool{false, true} {
+				name := f.name + "/" + c.name + "/retry in place"
+				if reopen {
+					name = f.name + "/" + c.name + "/retry after reopen"
+				}
+				t.Run(name, func(t *testing.T) {
+					r := require.New(t)
+					testPath, err := testutil.PathOfTempFile("test-failed-write")
+					r.NoError(err)
+					defer testutil.CleanupPath(testPath)
+
+					cfg := db.DefaultConfig
+					cfg.DbPath = testPath
+					r.Equal(_blockStoreBatchSize, cfg.BlockStoreBatchSize)
+					r.NotEmpty(cfg.Compressor)
+					fd, err := newFileDAOv2(1, cfg, deser)
+					r.NoError(err)
+					r.NoError(fd.Start(ctx))
+					written, failed := blks[:c.height-1], blks[c.height-1]
+					for _, blk := range written {
+						r.NoError(fd.PutBlock(ctx, blk))
+					}
+					sizes, slots := indexSizes(fd), bufferSlots(fd)
+
+					// a failed write leaves the in-memory state unchanged
+					restore := f.inject(r, fd)
+					r.Error(fd.PutBlock(ctx, failed))
+					restore()
+					r.Equal(sizes, indexSizes(fd))
+					newSlots := bufferSlots(fd)
+					for i := range slots {
+						r.Same(slots[i], newSlots[i], "slot %d", i)
+					}
+					checkBlocks(r, fd, written)
+					checkNotWritten(r, fd, failed)
+
+					if reopen {
+						// and nothing of it reached the file
+						r.NoError(fd.Stop(ctx))
+						fd = openFileDAOv2(cfg, deser)
+						r.NoError(fd.Start(ctx))
+						r.Equal(sizes, indexSizes(fd))
+						checkBufferRound(r, fd, written)
+						checkBlocks(r, fd, written)
+						checkNotWritten(r, fd, failed)
+					}
+
+					// retrying the same block succeeds
+					for _, blk := range blks[c.height-1 : 2*_blockStoreBatchSize+2] {
+						r.NoError(fd.PutBlock(ctx, blk))
+					}
+					checkBlocks(r, fd, blks[:2*_blockStoreBatchSize+2])
+					r.NoError(fd.Stop(ctx))
+
+					// reopening reloads the same state from the file and writing resumes
+					fd = openFileDAOv2(cfg, deser)
+					r.NoError(fd.Start(ctx))
+					defer fd.Stop(ctx)
+					checkBufferRound(r, fd, blks[:2*_blockStoreBatchSize+2])
+					checkBlocks(r, fd, blks[:2*_blockStoreBatchSize+2])
+					for _, blk := range blks[2*_blockStoreBatchSize+2:] {
+						r.NoError(fd.PutBlock(ctx, blk))
+					}
+					checkBlocks(r, fd, blks)
+				})
+			}
 		}
 	}
 }

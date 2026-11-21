@@ -103,7 +103,10 @@ func TestDispatcherV2(t *testing.T) {
 	r := require.New(t)
 	t.Run("limitBlockSync", func(t *testing.T) {
 		cfg := DefaultConfig
-		cfg.ProcessSyncRequestInterval = time.Second
+		// burst of 1 with effectively no refill: the first request from each
+		// peer is served, an immediate second from the same peer is throttled.
+		cfg.BlockSyncRequestBurst = 1
+		cfg.BlockSyncRequestRefillPerSecond = 0.0001
 		dsp, err := NewDispatcher(cfg, dummyVerificationFunc)
 		r.NoError(err)
 		r.NoError(dsp.Start(context.Background()))

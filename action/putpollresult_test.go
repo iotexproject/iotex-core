@@ -9,7 +9,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/state"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -39,4 +41,23 @@ func TestPutPollResult(t *testing.T) {
 	assert.NoError(t, clone.LoadProto(pb))
 	assert.Equal(t, r, clone)
 
+}
+
+// TestPutPollResultLoadProtoEmptyCandidates checks that a putPollResult with
+// no candidate list (Candidates is nil) decodes to an empty candidate list.
+func TestPutPollResultLoadProtoEmptyCandidates(t *testing.T) {
+	require := require.New(t)
+	for name, pb := range map[string]*iotextypes.PutPollResult{
+		"empty":           {},
+		"nil candidates":  {Height: 7},
+		"empty cand list": {Height: 7, Candidates: &iotextypes.CandidateList{}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := &PutPollResult{}
+			require.NotPanics(func() {
+				require.NoError(r.LoadProto(pb))
+			})
+			require.Empty(r.Candidates())
+		})
+	}
 }

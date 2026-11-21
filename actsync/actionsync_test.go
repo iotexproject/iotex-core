@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -221,6 +222,53 @@ func TestActionSync(t *testing.T) {
 		bs.actions.Range(func(_, _ any) bool { stored++; return true })
 		r.LessOrEqual(stored, cap, "live entries must never exceed the cap")
 		r.EqualValues(stored, bs.pending.Load(), "counter and map size must agree")
+	})
+	t.Run("unresolvedRequestsExpire", func(t *testing.T) {
+		// Hashes that never resolve must give their slots back after a bounded
+		// number of requests, otherwise a burst of hashes that never resolve
+		// keeps the pending set full and every later request is refused.
+		const cap = 4
+		var mu sync.Mutex
+		perHash := map[string]int{}
+		bs := NewActionSync(Config{
+			Size:     cap,
+			Interval: 5 * time.Millisecond,
+		}, &Helper{
+			P2PNeighbor: func() ([]peer.AddrInfo, error) {
+				return neighbors, nil
+			},
+			UnicastOutbound: func(_ context.Context, _ peer.AddrInfo, msg proto.Message) error {
+				mu.Lock()
+				defer mu.Unlock()
+				for _, h := range msg.(*iotexrpc.ActionSync).Hashes {
+					perHash[string(h)]++
+				}
+				return nil
+			},
+		})
+		r.NoError(bs.Start(context.Background()))
+		defer func() { r.NoError(bs.Stop(context.Background())) }()
+		for i := 0; i < cap; i++ {
+			bs.RequestAction(context.Background(), hash.Hash256b([]byte{0xee, byte(i)}))
+		}
+		r.Equal(int64(cap), bs.pending.Load())
+		bs.RequestAction(context.Background(), hash.Hash256b([]byte("refused")))
+		r.Equal(int64(cap), bs.pending.Load(), "request beyond the cap is refused while the set is full")
+
+		r.NoError(testutil.WaitUntil(5*time.Millisecond, 5*time.Second, func() (bool, error) {
+			return bs.pending.Load() == 0, nil
+		}), "unresolved requests must expire")
+		stored := 0
+		bs.actions.Range(func(_, _ any) bool { stored++; return true })
+		r.Zero(stored)
+		mu.Lock()
+		for _, n := range perHash {
+			r.LessOrEqual(n, maxRequestAttempts*batchPeerSize, "each hash is requested a bounded number of times")
+		}
+		mu.Unlock()
+
+		bs.RequestAction(context.Background(), hash.Hash256b([]byte("fresh")))
+		r.Equal(int64(1), bs.pending.Load(), "freed slots can be reused")
 	})
 	t.Run("requestWhenStopping", func(t *testing.T) {
 		count := atomic.Int32{}

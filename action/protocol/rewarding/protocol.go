@@ -528,7 +528,7 @@ func (p *Protocol) ReadState(
 		if len(args) != 0 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		ids, err := p.listPendingBlockRewardPoolIDs(ctx, sr)
+		ids, err := p.listPendingBlockRewardPoolIDsForRead(ctx, sr)
 		if err != nil {
 			return nil, uint64(0), err
 		}

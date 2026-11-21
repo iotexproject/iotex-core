@@ -1,6 +1,7 @@
 package api
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -62,4 +63,32 @@ func TestReadCache(t *testing.T) {
 		r.False(ok)
 		r.Nil(d)
 	}
+}
+
+func TestReadCacheConcurrentGet(t *testing.T) {
+	r := require.New(t)
+
+	c := NewReadCache()
+	key := hash.Hash160b([]byte{1})
+	c.Put(key, []byte{1})
+	miss := hash.Hash160b([]byte{2})
+
+	const (
+		workers = 16
+		rounds  = 1000
+	)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < rounds; j++ {
+				c.Get(key)
+				c.Get(miss)
+			}
+		}()
+	}
+	wg.Wait()
+	r.EqualValues(2*workers*rounds, c.total.Load())
+	r.EqualValues(workers*rounds, c.hit.Load())
 }

@@ -148,7 +148,7 @@ func (b *PebbleDB) WriteBatch(kvsb batch.KVStoreBatch) error {
 
 	batch, err := b.dedup(kvsb)
 	if err != nil {
-		return nil
+		return err
 	}
 	err = batch.Commit(nil)
 	if err != nil {
@@ -176,6 +176,7 @@ func (b *PebbleDB) dedup(kvsb batch.KVStoreBatch) (*pebble.Batch, error) {
 	for i := kvsb.Size() - 1; i >= 0; i-- {
 		write, e := kvsb.Entry(i)
 		if e != nil {
+			ch.Close()
 			return nil, e
 		}
 		// only handle Put and Delete

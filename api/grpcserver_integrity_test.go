@@ -1490,6 +1490,48 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 	}
 }
 
+func TestGrpcServer_ReadContractCacheKeyIncludesCall(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+	cfg.api.GRPCPort = testutil.RandomPort()
+	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	require.NoError(err)
+	grpcHandler := newGRPCHandler(svr.core)
+	defer func() {
+		testutil.CleanupPath(bfIndexFile)
+	}()
+
+	test := _readContractTests[0]
+	h, err := hash.HexStringToHash256(test.execHash)
+	require.NoError(err)
+	ai, err := indexer.GetActionIndex(h[:])
+	require.NoError(err)
+	blk, err := dao.GetBlockByHeight(ai.BlockHeight())
+	require.NoError(err)
+	exec, _, err := blk.ActionByHash(h)
+	require.NoError(err)
+	request := func(gas uint64) *iotexapi.ReadContractRequest {
+		return &iotexapi.ReadContractRequest{
+			Execution:     exec.Proto().GetCore().GetExecution(),
+			CallerAddress: test.callerAddr,
+			GasLimit:      gas,
+			GasPrice:      big.NewInt(unit.Qev).String(),
+		}
+	}
+
+	// two calls that differ only in gas must each get their own result,
+	// not the cached receipt of the other
+	res1, err := grpcHandler.ReadContract(context.Background(), request(exec.Gas()))
+	require.NoError(err)
+	res2, err := grpcHandler.ReadContract(context.Background(), request(exec.Gas()+1))
+	require.NoError(err)
+	require.NotEqual(res1.Receipt.ActHash, res2.Receipt.ActHash)
+	// and an identical call is still served the same result
+	res3, err := grpcHandler.ReadContract(context.Background(), request(exec.Gas()))
+	require.NoError(err)
+	require.Equal(res1.Receipt.ActHash, res3.Receipt.ActHash)
+}
+
 func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()

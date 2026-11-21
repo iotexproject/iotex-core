@@ -58,6 +58,8 @@ type (
 		ContainsTransactionLog() bool
 		TransactionLogs(uint64) (*iotextypes.TransactionLogs, error)
 		PutBlock(context.Context, *block.Block) error
+		// Deprecated: DeleteTipBlock is only used in tests, and its reverts
+		// are not atomic
 		DeleteTipBlock() error
 	}
 
@@ -362,6 +364,8 @@ func (fd *fileDAO) addNewV2File(height uint64) error {
 	return err
 }
 
+// Deprecated: DeleteTipBlock is only used in tests, and its reverts are not
+// atomic
 func (fd *fileDAO) DeleteTipBlock() error {
 	return fd.currFd.DeleteTipBlock()
 }
