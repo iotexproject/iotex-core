@@ -227,6 +227,32 @@ func TestBlockObjectMarshal(t *testing.T) {
 		 }
 		`, string(res))
 	})
+
+	t.Run("BlockGasUsedFromFetchedReceipts", func(t *testing.T) {
+		// Blocks loaded from storage (historical reads / archive nodes) do not carry
+		// their receipts on the block object; the receipts are fetched separately and
+		// supplied via the receipts field. The block-level gasUsed must still be the
+		// sum of those receipts, not 0x0. See iotexproject/iotex-core#4937.
+		storageBlk := blk
+		storageBlk.Receipts = nil
+		res, err := json.Marshal(&getBlockResult{
+			blk: &storageBlk,
+			receipts: []*action.Receipt{{
+				Status:      1,
+				BlockHeight: 1,
+				ActionHash:  txHash,
+				GasConsumed: 21000,
+				TxIndex:     1,
+			}},
+			transactions: []interface{}{string("0x2133ee7ff4562535166e3f16fd7407c19e5ed1acd036f78d3528a5a40e40ad42")},
+		})
+		require.NoError(err)
+		var obj struct {
+			GasUsed string `json:"gasUsed"`
+		}
+		require.NoError(json.Unmarshal(res, &obj))
+		require.Equal("0x5208", obj.GasUsed)
+	})
 }
 
 func TestTransactionObjectMarshal(t *testing.T) {

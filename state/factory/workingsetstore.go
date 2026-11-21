@@ -7,6 +7,8 @@ package factory
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -27,9 +29,16 @@ type (
 		PutObject(ns string, key []byte, object any) (err error)
 		GetObject(ns string, key []byte, object any) error
 		DeleteObject(ns string, key []byte, object any) error
-		States(ns string, object any, keys [][]byte) (state.Iterator, error)
+		// States reads a set of states. keys selects specific keys (nil means "all
+		// keys in ns"); scan, when non-nil, instead asks for an ordered, bounded
+		// range scan. The two are mutually exclusive and validated by the caller.
+		States(ns string, object any, keys [][]byte, scan *db.RangeScan) (state.Iterator, error)
 		Commit(context.Context, uint64) error
 		Digest() hash.Hash256
+		// DumpWriteQueue writes the ordered write queue that Digest() hashes over,
+		// one entry per line. Used to diff two binaries' state writes when a delta
+		// state digest mismatch occurs. Returns an error if unsupported.
+		DumpWriteQueue(io.Writer) error
 		Finalize(context.Context) error
 		FinalizeTx(context.Context) error
 		Snapshot() int
@@ -48,6 +57,11 @@ type (
 		flusher    db.KVStoreFlusher
 	}
 )
+
+// KVStore() hands this store out as the base KVStore of a derived working set, so
+// it has to keep answering ordered range scans. Assert it at compile time rather
+// than discovering it from a failed type assertion at block-production time.
+var _ db.KVStoreWithRangeScan = (*stateDBWorkingSetStore)(nil)
 
 func newStateDBWorkingSetStore(flusher db.KVStoreFlusher, readBuffer bool) workingSetStore {
 	return &stateDBWorkingSetStore{
@@ -118,6 +132,28 @@ func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
 	return hash.Hash256b(store.flusher.SerializeQueue())
 }
 
+// DumpWriteQueue dumps the write queue underlying Digest(). Values are recorded
+// as a hash rather than verbatim so a dump stays small on blocks that touch a
+// lot of contract storage; the index of the first differing line between two
+// dumps is what localises a delta state digest mismatch.
+func (store *stateDBWorkingSetStore) DumpWriteQueue(w io.Writer) error {
+	store.lock.Lock()
+	defer store.lock.Unlock()
+	buf := store.flusher.KVStoreWithBuffer()
+	for i := 0; i < buf.Size(); i++ {
+		wi, err := buf.Entry(i)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read write queue entry %d", i)
+		}
+		v := wi.Value()
+		if _, err := fmt.Fprintf(w, "%d\t%d\t%s\t%x\t%x\t%d\n",
+			i, wi.WriteType(), wi.Namespace(), wi.Key(), hash.Hash256b(v), len(v)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (store *stateDBWorkingSetStore) Commit(_ context.Context, _ uint64) error {
 	store.lock.Lock()
 	defer store.lock.Unlock()
@@ -175,19 +211,52 @@ func (store *stateDBWorkingSetStore) getKV(ns string, key []byte) ([]byte, error
 	return data, nil
 }
 
-func (store *stateDBWorkingSetStore) States(ns string, obj any, keys [][]byte) (state.Iterator, error) {
-	var values [][]byte
-	var err error
+// statesKVStore picks which KVStore a read goes to. States() and ScanRange() MUST
+// share it: ScanRange exists so that this store can sit in the base-store slot of a
+// derived working set's flusher (see (*workingSet).NewWorkingSet), and a range scan
+// that read a different source than States would answer the same question two ways
+// depending on how the caller got here -- which is a state divergence, not a
+// performance detail.
+func (store *stateDBWorkingSetStore) statesKVStore() db.KVStore {
 	if store.readBuffer {
 		// TODO: after the 180 HF, we can revert readBuffer, and always go this case
-		keys, values, err = readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
-	} else {
-		keys, values, err = readStates(store.flusher.BaseKVStore(), ns, keys)
+		return store.flusher.KVStoreWithBuffer()
 	}
+	return store.flusher.BaseKVStore()
+}
+
+func (store *stateDBWorkingSetStore) States(ns string, obj any, keys [][]byte, scan *db.RangeScan) (state.Iterator, error) {
+	keys, values, err := readStates(store.statesKVStore(), ns, keys, scan)
 	if err != nil {
 		return nil, err
 	}
 	return state.NewIterator(keys, values)
+}
+
+// ScanRange makes *stateDBWorkingSetStore a db.KVStoreWithRangeScan.
+//
+// This is required, not optional. KVStore() returns the store itself, so when
+// (*stateDB).Mint lags the chain tip and derives the next working set from the
+// cached parent one, this store becomes the base KVStore of the child's
+// kvStoreWithBuffer. Without this method the child's type assertion to
+// db.KVStoreWithRangeScan fails and every range scan on the proposer's working set
+// errors, while validators -- who build their working set on a committed DAO --
+// answer it fine. Same block, two different results: a fork.
+//
+// Semantics are the KVStoreWithRangeScan contract in full; they are inherited
+// unchanged from whichever store statesKVStore() selects, which is the same source
+// States() reads.
+func (store *stateDBWorkingSetStore) ScanRange(ns string, min, max []byte, limit int) ([][]byte, [][]byte, error) {
+	kvStore := store.statesKVStore()
+	scanner, ok := kvStore.(db.KVStoreWithRangeScan)
+	if !ok {
+		// Deliberately not softened to an empty result. This is a node-local
+		// capability fact, not chain state: it can differ between the proposer and
+		// the validators of the same block, so an empty answer here would turn a
+		// build/config problem into a divergence.
+		return nil, nil, errors.Wrapf(db.ErrNotSupported, "kvstore %T does not support ScanRange", kvStore)
+	}
+	return scanner.ScanRange(ns, min, max, limit)
 }
 
 func (store *stateDBWorkingSetStore) Finalize(ctx context.Context) error {

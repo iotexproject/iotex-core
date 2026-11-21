@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -35,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/v2/pkg/routine"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/httputil"
 	"github.com/iotexproject/iotex-core/v2/server/itx/nodestats"
+	"github.com/iotexproject/iotex-core/v2/state/factory"
 )
 
 // Server is the iotex server instance containing all components.
@@ -53,18 +55,19 @@ type Server struct {
 	subModuleCancel      context.CancelFunc
 }
 
-// NewServer creates a new server
+// NewServer creates a new server. opts are forwarded to the chainservice
+// builder; a production node passes none and is fully described by cfg.
 // TODO clean up config, make root config contains network, dispatch and chainservice
-func NewServer(cfg config.Config) (*Server, error) {
-	return newServer(cfg, false)
+func NewServer(cfg config.Config, opts ...chainservice.BuildOption) (*Server, error) {
+	return newServer(cfg, false, opts...)
 }
 
 // NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
-	return newServer(cfg, true)
+func NewInMemTestServer(cfg config.Config, opts ...chainservice.BuildOption) (*Server, error) { // notest
+	return newServer(cfg, true, opts...)
 }
 
-func newServer(cfg config.Config, testing bool) (*Server, error) {
+func newServer(cfg config.Config, testing bool, opts ...chainservice.BuildOption) (*Server, error) {
 	// TODO: move to a separate package
 	actionDeserializer := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID)
 	// create dispatcher instance
@@ -113,7 +116,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	chains := make(map[uint32]*chainservice.ChainService)
 	apiServers := make(map[uint32]*api.ServerV2)
 	var cs *chainservice.ChainService
-	builder := chainservice.NewBuilder(cfg)
+	builder := chainservice.NewBuilder(cfg, opts...)
 	builder.SetP2PAgent(p2pAgent)
 	rpcStats := nodestats.NewAPILocalStats()
 	builder.SetRPCStats(rpcStats)
@@ -137,7 +140,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			return nil, errors.Wrap(err, "failed to add api server as subscriber")
 		}
 	}
-	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
@@ -220,8 +222,9 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	if s.ioswarmCoord != nil {
 		if err := s.ioswarmCoord.Start(cctx); err != nil {
-			// IOSwarm failure is non-fatal: log warning but don't block consensus
-			log.L().Warn("IOSwarm coordinator failed to start (node continues without it)", zap.Error(err))
+			// Non-fatal for the node; unhook the coordinator from block commits.
+			log.L().Error("IOSwarm coordinator failed to start, IOSwarm is disabled on this node", zap.Error(err))
+			factory.SetDiffCallback(s.rootChainService.StateFactory(), nil)
 			s.ioswarmCoord = nil
 		}
 	}
@@ -262,7 +265,6 @@ func (s *Server) Stop(ctx context.Context) error {
 func (s *Server) NewSubChainService(cfg config.Config) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	builder := chainservice.NewBuilder(cfg)
 	cs, err := builder.SetP2PAgent(s.p2pAgent).BuildForSubChain()
 	if err != nil {
@@ -345,6 +347,18 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
+	if h := cfg.Chain.StopAtHeight; h > 0 {
+		// Start() only returns once the indexer catch-up has reached StopAtHeight
+		// (blockdao caps CheckIndexer at it), so getting here means we are done.
+		// Raise SIGTERM on ourselves rather than returning early: that reuses the
+		// normal signal path, so ctx is cancelled, the deferred Stop() runs, and
+		// the process exits 0 with the state DB closed cleanly — which is what
+		// makes the resulting data dir usable as a checkpoint.
+		log.L().Info("Reached stop-at-height, shutting down.", zap.Uint64("height", h))
+		if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
+			log.L().Error("Failed to signal self for stop-at-height shutdown.", zap.Error(err))
+		}
+	}
 	if _, isGateway := cfg.Plugins[config.GatewayPlugin]; isGateway && cfg.API.ReadyDuration > 0 {
 		// wait for a while to make sure the server is ready
 		// The original intention was to ensure that all transactions that were not received during the restart were included in block, thereby avoiding inconsistencies in the state of the API node.

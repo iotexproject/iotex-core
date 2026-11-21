@@ -97,6 +97,78 @@ func TestCheckIndexer(t *testing.T) {
 	}
 }
 
+// TestCheckIndexerTargetHeight covers the targetHeight cap, which TestCheckIndexer
+// above never exercises (it always passes 0). The cap is what makes a segmented
+// replay stop exactly on its boundary instead of running to the block DAO tip.
+func TestCheckIndexerTargetHeight(t *testing.T) {
+	cases := []struct {
+		name              string
+		daoHeight         uint64
+		indexerTipHeight  uint64
+		targetHeight      uint64
+		expectedPutBlocks []uint64
+	}{
+		{"zero means no cap", 5, 0, 0, []uint64{1, 2, 3, 4, 5}},
+		{"cap below dao tip truncates", 5, 0, 3, []uint64{1, 2, 3}},
+		{"cap below dao tip from a warm indexer", 5, 2, 3, []uint64{3}},
+		{"cap equal to dao tip", 5, 0, 5, []uint64{1, 2, 3, 4, 5}},
+		{"cap above dao tip falls back to dao tip", 5, 0, 9, []uint64{1, 2, 3, 4, 5}},
+		{"cap already reached is a no-op", 5, 3, 3, []uint64{}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			require := require.New(t)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockDao := mock_blockdao.NewMockBlockDAO(ctrl)
+			checker := NewBlockIndexerChecker(mockDao)
+			indexer := mock_blockdao.NewMockBlockIndexer(ctrl)
+
+			putBlocks := make([]*block.Block, 0)
+			mockDao.EXPECT().Height().Return(c.daoHeight, nil).Times(1)
+			mockDao.EXPECT().GetBlockByHeight(gomock.Any()).DoAndReturn(func(arg0 uint64) (*block.Block, error) {
+				pb := &iotextypes.BlockHeader{
+					Core: &iotextypes.BlockHeaderCore{
+						Height:    arg0,
+						Timestamp: timestamppb.Now(),
+					},
+					ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
+				}
+				blk := &block.Block{}
+				err := blk.LoadFromBlockHeaderProto(pb)
+				return blk, err
+			}).AnyTimes()
+			mockDao.EXPECT().GetReceipts(gomock.Any()).Return(nil, nil).AnyTimes()
+			mockDao.EXPECT().HeaderByHeight(gomock.Any()).DoAndReturn(func(arg0 uint64) (*block.Header, error) {
+				pb := &iotextypes.BlockHeader{
+					Core: &iotextypes.BlockHeaderCore{
+						Height:    arg0,
+						Timestamp: timestamppb.Now(),
+					},
+					ProducerPubkey: identityset.PrivateKey(1).PublicKey().Bytes(),
+				}
+				blk := &block.Block{}
+				err := blk.LoadFromBlockHeaderProto(pb)
+				return &blk.Header, err
+			}).AnyTimes()
+			indexer.EXPECT().Height().Return(c.indexerTipHeight, nil).Times(1)
+			indexer.EXPECT().PutBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, blk *block.Block) error {
+				putBlocks = append(putBlocks, blk)
+				return nil
+			}).AnyTimes()
+
+			ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+			ctx = genesis.WithGenesisContext(ctx, genesis.TestDefault())
+			require.NoError(checker.CheckIndexer(ctx, indexer, c.targetHeight, func(uint64) {}))
+			require.Len(putBlocks, len(c.expectedPutBlocks))
+			for k, h := range c.expectedPutBlocks {
+				require.Equal(h, putBlocks[k].Height())
+			}
+		})
+	}
+}
+
 func TestBlockIndexerChecker_CheckIndexer(t *testing.T) {
 	r := require.New(t)
 

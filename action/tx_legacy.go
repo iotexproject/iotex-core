@@ -141,7 +141,7 @@ func (tx *LegacyTx) setChainID(n uint32) {
 	tx.chainID = n
 }
 
-func (tx *LegacyTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
+func (tx *LegacyTx) toEthTx(to *common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
 	return types.NewTx(&types.LegacyTx{
 		Nonce:    tx.nonce,
 		GasPrice: tx.price(),
@@ -149,5 +149,5 @@ func (tx *LegacyTx) toEthTx(to *common.Address, value *big.Int, data []byte) *ty
 		To:       to,
 		Value:    value,
 		Data:     data,
-	})
+	}), nil
 }

@@ -7,15 +7,23 @@ package api
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
 
 	. "github.com/agiledragon/gomonkey/v2"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/tracing"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -178,8 +186,10 @@ func getTopicsAddress(addr []string, topics [][]string) (*iotexapi.LogsFilter, e
 }
 
 func setupTestCoreService() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
-	cfg := newConfig()
+	return setupTestCoreServiceWithConfig(newConfig())
+}
 
+func setupTestCoreServiceWithConfig(cfg testConfig) (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
@@ -227,6 +237,50 @@ func TestEstimateGasForAction(t *testing.T) {
 
 	_, err = svr.EstimateGasForAction(context.Background(), nil)
 	require.Contains(err.Error(), action.ErrNilProto.Error())
+}
+
+func lossyTxContainerProto(t *testing.T) *iotextypes.Action {
+	r := require.New(t)
+	sk := identityset.PrivateKey(1).EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	data, err := action.NewUnstake(1, []byte("payload")).EthData()
+	r.NoError(err)
+	data = append(data, make([]byte, 32)...)
+	to := common.BytesToAddress(address.StakingProtocolAddrHash[:])
+	tx := gethtypes.MustSignNewTx(sk, gethtypes.LatestSignerForChainID(big.NewInt(4689)), &gethtypes.DynamicFeeTx{
+		ChainID:   big.NewInt(4689),
+		Nonce:     1,
+		GasTipCap: big.NewInt(1),
+		GasFeeCap: big.NewInt(2),
+		Gas:       100000,
+		To:        &to,
+		Value:     big.NewInt(0),
+		Data:      data,
+	})
+	raw, err := tx.MarshalBinary()
+	r.NoError(err)
+	_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+	r.NoError(err)
+	return &iotextypes.Action{
+		Core: &iotextypes.ActionCore{
+			ChainID: 1,
+			Action:  &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}},
+		},
+		SenderPubKey: pubkey.Bytes(),
+		Signature:    sig,
+		Encoding:     iotextypes.Encoding_TX_CONTAINER,
+	}
+}
+
+func TestCoreServiceRejectsLossyTxContainer(t *testing.T) {
+	r := require.New(t)
+	svr, _, _, _, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+
+	lossy := lossyTxContainerProto(t)
+	_, err := svr.SendAction(context.Background(), lossy)
+	r.ErrorContains(err, "unfolded action does not match the signed transaction")
+	_, err = svr.EstimateGasForAction(context.Background(), lossy)
+	r.ErrorContains(err, "unfolded action does not match the signed transaction")
 }
 
 func TestElectionBuckets(t *testing.T) {
@@ -684,6 +738,104 @@ func TestTraceCall(t *testing.T) {
 	require.Empty(receipt.ExecutionRevertMsg())
 }
 
+func TestTraceCallWithNamedTracer(t *testing.T) {
+	require := require.New(t)
+	svr, bc, _, ap, cleanCallback := setupTestCoreService()
+	defer cleanCallback()
+	ctx := context.Background()
+	tsf, err := action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	require.NoError(err)
+	require.NoError(ap.Add(ctx, tsf))
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+
+	// a named tracer needs the chain config, which reads the block context
+	for _, height := range []uint64{0, blk.Height()} {
+		tracerName := "callTracer"
+		require.NotPanics(func() {
+			_, receipt, tracer, err := svr.TraceCall(ctx,
+				identityset.Address(29), height,
+				identityset.Address(29).String(),
+				0, big.NewInt(0), testutil.TestGasLimit,
+				[]byte{}, &tracers.TraceConfig{Tracer: &tracerName})
+			require.NoError(err)
+			require.Equal(uint64(1), receipt.Status)
+			res, err := tracer.(*tracers.Tracer).GetResult()
+			require.NoError(err)
+			require.NotEmpty(res)
+		})
+	}
+}
+
+func TestTraceCallForkBoundary(t *testing.T) {
+	require := require.New(t)
+	const vanuatuHeight = 10
+	cfg := newConfig()
+	cfg.genesis.VanuatuBlockHeight = vanuatuHeight
+	testutil.NormalizeGenesisHeights(&cfg.genesis.Blockchain)
+	svr, bc, _, _, cleanCallback := setupTestCoreServiceWithConfig(cfg)
+	defer cleanCallback()
+	ctx := context.Background()
+
+	// a test-only native tracer that reports whether 0x0a (point evaluation,
+	// active from Cancun/Vanuatu) is in the precompile set derived from the
+	// chain config the tracer is built with and the block the call runs in
+	tracerName := "testTraceCallCancunPrecompile"
+	tracers.DefaultDirectory.Register(tracerName, func(_ *tracers.Context, _ json.RawMessage, cc *params.ChainConfig) (*tracers.Tracer, error) {
+		var (
+			started bool
+			active  bool
+		)
+		return &tracers.Tracer{
+			Hooks: &tracing.Hooks{
+				OnTxStart: func(env *tracing.VMContext, _ *gethtypes.Transaction, _ common.Address) {
+					rules := cc.Rules(env.BlockNumber, env.Random != nil, env.Time)
+					started = true
+					active = slices.Contains(vm.ActivePrecompiles(rules), common.BytesToAddress([]byte{0x0a}))
+				},
+			},
+			GetResult: func() (json.RawMessage, error) {
+				if !started {
+					return nil, errors.New("tracer did not see the transaction start")
+				}
+				return json.Marshal(active)
+			},
+			Stop: func(error) {},
+		}, nil
+	}, false)
+	isCancunPrecompiled := func() string {
+		_, receipt, tracer, err := svr.TraceCall(ctx,
+			identityset.Address(29), 0,
+			identityset.Address(29).String(),
+			0, big.NewInt(0), testutil.TestGasLimit,
+			[]byte{}, &tracers.TraceConfig{Tracer: &tracerName})
+		require.NoError(err)
+		require.Equal(uint64(1), receipt.Status)
+		res, err := tracer.(*tracers.Tracer).GetResult()
+		require.NoError(err)
+		return string(res)
+	}
+	mintTo := func(height uint64) {
+		for bc.TipHeight() < height {
+			blk, err := bc.MintNewBlock(testutil.TimestampNow())
+			require.NoError(err)
+			require.NoError(bc.CommitBlock(blk))
+		}
+		require.Equal(height, bc.TipHeight())
+	}
+
+	// tip = fork - 2: the call executes at fork - 1, before Cancun
+	mintTo(vanuatuHeight - 2)
+	require.Equal("false", isCancunPrecompiled())
+	// tip = fork - 1: the call executes at the fork height, so the tracer
+	// must see Cancun as well
+	mintTo(vanuatuHeight - 1)
+	require.Equal("true", isCancunPrecompiled())
+}
+
 func TestProofAndCompareReverseActions(t *testing.T) {
 	sliceN := func(n uint64) (value []uint64) {
 		value = make([]uint64, 0, n)
@@ -1055,3 +1207,42 @@ type mockWS struct {
 var _ protocol.StateManagerWithCloser = (*mockWS)(nil)
 
 func (m *mockWS) Close() {}
+
+func TestTipHeight(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	indexer := mock_blockindex.NewMockIndexer(ctrl)
+	cs := &coreService{bc: bc}
+
+	t.Run("NoIndexer", func(t *testing.T) {
+		// without an action indexer the blockchain tip is returned as-is
+		bc.EXPECT().TipHeight().Return(uint64(100)).Times(1)
+		require.Equal(uint64(100), cs.TipHeight())
+	})
+
+	cs.indexer = indexer
+
+	t.Run("IndexerBehind", func(t *testing.T) {
+		// block store advanced to 100 but the (async) action indexer only reached
+		// 99; the API must report 99 so a block is advertised as latest only once
+		// its actions/receipts are indexed and queryable. See issue #4677.
+		bc.EXPECT().TipHeight().Return(uint64(100)).Times(1)
+		indexer.EXPECT().Height().Return(uint64(99), nil).Times(1)
+		require.Equal(uint64(99), cs.TipHeight())
+	})
+
+	t.Run("IndexerCaughtUp", func(t *testing.T) {
+		bc.EXPECT().TipHeight().Return(uint64(100)).Times(1)
+		indexer.EXPECT().Height().Return(uint64(100), nil).Times(1)
+		require.Equal(uint64(100), cs.TipHeight())
+	})
+
+	t.Run("IndexerHeightErrorFallsBackToChainTip", func(t *testing.T) {
+		bc.EXPECT().TipHeight().Return(uint64(100)).Times(1)
+		indexer.EXPECT().Height().Return(uint64(0), errors.New("boom")).Times(1)
+		require.Equal(uint64(100), cs.TipHeight())
+	})
+}

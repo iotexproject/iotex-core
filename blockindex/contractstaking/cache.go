@@ -458,11 +458,11 @@ func (s *contractStakingCache) Commit(ctx context.Context, ca address.Address, s
 	}
 	for id, bucket := range s.deltaBuckets {
 		if bucket == nil {
-			if err := cssm.DeleteBucket(ca, id); err != nil {
+			if err := cssm.DeleteBucket(ctx, ca, id); err != nil {
 				return nil, errors.Wrapf(err, "failed to delete bucket %d", id)
 			}
 		} else {
-			if err := cssm.UpsertBucket(ca, id, bucket); err != nil {
+			if err := cssm.UpsertBucket(ctx, ca, id, bucket); err != nil {
 				return nil, errors.Wrapf(err, "failed to upsert bucket %d", id)
 			}
 		}

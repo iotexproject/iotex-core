@@ -76,6 +76,7 @@ type (
 		blockCache     cache.LRUCache
 		txLogCache     cache.LRUCache
 		tipHeight      uint64
+		stopAtHeight   uint64
 	}
 )
 
@@ -98,6 +99,14 @@ func WithReceiptIndexer(ri *ReceiptIndexer) Option {
 func WithTransactionLogIndexer(ti *TransactionLogIndexer) Option {
 	return func(dao *blockDAO) {
 		dao.txLogIndexer = ti
+	}
+}
+
+// WithStopAtHeight caps the startup indexer catch-up at the given height instead
+// of running all the way to the block DAO tip. Zero keeps the default behaviour.
+func WithStopAtHeight(height uint64) Option {
+	return func(dao *blockDAO) {
+		dao.stopAtHeight = height
 	}
 }
 
@@ -173,8 +182,12 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context, checker BlockIndexerChecker) error {
+	if dao.stopAtHeight > 0 {
+		log.L().Info("indexer catch-up is capped by stopAtHeight.",
+			zap.Uint64("stopAtHeight", dao.stopAtHeight))
+	}
 	for i, indexer := range dao.indexers {
-		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
+		if err := checker.CheckIndexer(ctx, indexer, dao.stopAtHeight, func(height uint64) {
 			if height%5000 == 0 {
 				log.L().Info(
 					"indexer is catching up.",
@@ -368,13 +381,23 @@ func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
 		}
 		tlogMap[hash.Hash256(tlog.ActionHash)] = t
 	}
-	for _, r := range receipts {
-		if len(r.TransactionLogs()) > 0 {
-			continue
+	// receipts may be shared pointers (staging buffer / cached block); attach the
+	// transaction-log patch to clones so concurrent readers are not mutated and the
+	// same receipt is not appended to twice under a cache miss.
+	if len(tlogMap) > 0 {
+		patched := make([]*action.Receipt, len(receipts))
+		for i, r := range receipts {
+			if len(r.TransactionLogs()) == 0 {
+				if txLogs, ok := tlogMap[r.ActionHash]; ok {
+					// shallow-copy the shared receipt and append the patch to the copy;
+					// the copy's transactionLogs is empty so append allocates fresh.
+					rc := *r
+					r = rc.AddTransactionLogs(txLogs...)
+				}
+			}
+			patched[i] = r
 		}
-		if txLogs, ok := tlogMap[r.ActionHash]; ok {
-			r.AddTransactionLogs(txLogs...)
-		}
+		receipts = patched
 	}
 	lruCachePut(dao.receiptCache, height, receipts)
 	return receipts, nil

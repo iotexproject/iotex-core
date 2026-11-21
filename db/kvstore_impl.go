@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -118,6 +119,53 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 func (m *memKVStore) Filter(namespace string, c Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
 	// TODO: implement filter for memKVStore
 	return nil, nil, errors.New("in-memory KVStore does not support Filter()")
+}
+
+// ScanRange returns up to limit <k, v> pairs in [min, max), ascending by bytes.Compare(k).
+// See KVStoreWithRangeScan for the exact semantics, which must stay identical across engines.
+//
+// NOTE on the storage key encoding: entries are keyed as
+// namespace + _keyDelimiter + string(key), and neither the namespace nor the key
+// is escaped. The delimiter is therefore ambiguous whenever a namespace contains
+// it: namespace "a.b" with key "c" and namespace "a" with key "b.c" occupy the
+// same map entry. That ambiguity is pre-existing -- Put/Get/Delete already alias
+// the same way -- and it is not introduced here; ScanRange inherits it. It does
+// not corrupt ORDERING, because within a fixed namespace the prefix is constant
+// and byte order over the suffix equals byte order over the key. It can produce
+// FALSE MATCHES: scanning namespace "a" would surface a key "b.c" that really
+// belongs to namespace "a.b". memKVStore is a test-only store (all production
+// paths use bolt or pebble, where namespaces are physically separate buckets /
+// hash-prefixed keys), and none of the namespaces in state/tables.go contain
+// ".", so this is reported rather than papered over.
+func (m *memKVStore) ScanRange(namespace string, min, max []byte, limit int) ([][]byte, [][]byte, error) {
+	if emptyScanRange(min, max) {
+		return nil, nil, nil
+	}
+	var (
+		prefix = namespace + _keyDelimiter
+		keys   [][]byte
+		values [][]byte
+	)
+	// a missing namespace simply yields no match, which is an empty result
+	m.data.Range(func(k cache.Key, v interface{}) bool {
+		ks, ok := k.(string)
+		if !ok || !strings.HasPrefix(ks, prefix) {
+			return true
+		}
+		key := []byte(ks[len(prefix):])
+		if !inScanRange(key, min, max) {
+			return true
+		}
+		value, ok := v.([]byte)
+		if !ok {
+			return true
+		}
+		keys = append(keys, key)
+		values = append(values, copyBytes(value))
+		return true
+	})
+	k, v := sortAndTruncateScan(keys, values, limit)
+	return k, v, nil
 }
 
 // WriteBatch commits a batch

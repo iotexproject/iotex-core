@@ -1,6 +1,8 @@
 package stakingindex
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -43,7 +45,7 @@ func (eh *eventHandler) Finalize() (batch.KVStoreBatch, indexerCache) {
 	return delta, dirty
 }
 
-func (eh *eventHandler) PutBucket(_ address.Address, id uint64, bkt *Bucket) error {
+func (eh *eventHandler) PutBucket(_ context.Context, _ address.Address, id uint64, bkt *Bucket) error {
 	data, err := bkt.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize bucket")
@@ -53,7 +55,7 @@ func (eh *eventHandler) PutBucket(_ address.Address, id uint64, bkt *Bucket) err
 	return nil
 }
 
-func (eh *eventHandler) DeleteBucket(_ address.Address, id uint64) error {
+func (eh *eventHandler) DeleteBucket(_ context.Context, _ address.Address, id uint64) error {
 	eh.dirty.DeleteBucket(id)
 	eh.delta.Delete(eh.stakingBucketNS, byteutil.Uint64ToBytesBigEndian(id), "failed to delete bucket")
 	return nil

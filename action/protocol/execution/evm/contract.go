@@ -51,8 +51,15 @@ type (
 		code       protocol.SerializableBytes // contract byte-code
 		root       hash.Hash256
 		committed  map[hash.Hash256][]byte
-		sm         protocol.StateManager
-		trie       trie.Trie // storage trie of the contract
+		// trackAbsent gates the EIP-2200-correct prestate tracking below. When
+		// false (pre-fork), the buggy pre-existing behavior is preserved: keys
+		// observed absent are never recorded, so a later post-mutation GetState
+		// pollutes committed[]. When true (post-fork), absent keys are recorded
+		// in missing[] and GetCommittedState short-circuits them.
+		trackAbsent bool
+		missing     map[hash.Hash256]struct{} // keys observed as absent in the pre-tx trie
+		sm          protocol.StateManager
+		trie        trie.Trie // storage trie of the contract
 	}
 )
 
@@ -65,6 +72,11 @@ func (c *contract) GetCommittedState(key hash.Hash256) ([]byte, error) {
 	if v, ok := c.committed[key]; ok {
 		return v, nil
 	}
+	// If the key was absent in the pre-tx state, do not read the live trie —
+	// it may already hold a post-mutation value written earlier in this tx.
+	if _, ok := c.missing[key]; ok {
+		return nil, trie.ErrNotExist
+	}
 	return c.GetState(key)
 }
 
@@ -72,10 +84,18 @@ func (c *contract) GetCommittedState(key hash.Hash256) ([]byte, error) {
 func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 	v, err := c.trie.Get(key[:])
 	if err != nil {
+		if c.trackAbsent && errors.Cause(err) == trie.ErrNotExist {
+			c.missing[key] = struct{}{}
+		}
 		return nil, err
 	}
-	if _, ok := c.committed[key]; !ok {
-		c.committed[key] = v
+	// Only record the pre-state value if the key has never been seen before.
+	// If it was previously observed absent (missing), any current trie value is
+	// a post-mutation write from this tx and must not overwrite prestate.
+	if _, wasMissing := c.missing[key]; !wasMissing {
+		if _, ok := c.committed[key]; !ok {
+			c.committed[key] = v
+		}
 	}
 	return v, nil
 }
@@ -83,7 +103,9 @@ func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 // SetState set the value into contract storage
 func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	if _, ok := c.committed[key]; !ok {
-		_, _ = c.GetState(key)
+		if _, ok := c.missing[key]; !ok {
+			_, _ = c.GetState(key)
+		}
 	}
 	c.dirtyState = true
 	if err := c.trie.Upsert(key[:], value); err != nil {
@@ -144,6 +166,8 @@ func (c *contract) Commit() error {
 		// purge the committed value cache
 		c.committed = nil
 		c.committed = make(map[hash.Hash256][]byte)
+		c.missing = nil
+		c.missing = make(map[hash.Hash256]struct{})
 	}
 	if c.dirtyCode {
 		if _, err := c.sm.PutState(c.code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(c.Account.CodeHash)); err != nil {
@@ -169,28 +193,37 @@ func (c *contract) Snapshot() Contract {
 		c.Account.Root = hash.BytesToHash256(rh)
 	}
 	return &contract{
-		Account:    c.Account.Clone(),
-		async:      c.async,
-		dirtyCode:  c.dirtyCode,
-		dirtyState: c.dirtyState,
-		code:       c.code,
-		root:       c.Account.Root,
-		committed:  c.committed,
-		sm:         c.sm,
+		Account:     c.Account.Clone(),
+		async:       c.async,
+		dirtyCode:   c.dirtyCode,
+		dirtyState:  c.dirtyState,
+		code:        c.code,
+		root:        c.Account.Root,
+		committed:   c.committed,
+		trackAbsent: c.trackAbsent,
+		missing:     c.missing,
+		sm:          c.sm,
 		// note we simply save the trie (which is an interface/pointer)
 		// later Revert() call needs to reset the saved trie root
 		trie: c.trie,
 	}
 }
 
-// newContract returns a Contract instance
-func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, enableAsync bool) (Contract, error) {
+// newContract returns a Contract instance.
+//
+// trackAbsent enables the EIP-2200-correct prestate tracking (recording of
+// storage slots absent in the pre-tx trie). It should be plumbed from a
+// featureCtx-gated adapter option so pre-fork execution keeps the historical
+// (buggy) behavior and post-fork execution gets the fix.
+func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, enableAsync, trackAbsent bool) (Contract, error) {
 	c := &contract{
-		Account:   account,
-		root:      account.Root,
-		committed: make(map[hash.Hash256][]byte),
-		sm:        sm,
-		async:     enableAsync,
+		Account:     account,
+		root:        account.Root,
+		committed:   make(map[hash.Hash256][]byte),
+		trackAbsent: trackAbsent,
+		missing:     make(map[hash.Hash256]struct{}),
+		sm:          sm,
+		async:       enableAsync,
 	}
 	options := []mptrie.Option{
 		mptrie.KVStoreOption(protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),

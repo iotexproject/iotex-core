@@ -330,14 +330,14 @@ func TestFixAlias(t *testing.T) {
 		})
 
 		// simulate handleCandidateUpdate: update name
-		center := candCenterFromNewCandidateStateManager(r, views)
+		center := candCenterFromCandidateStateManager(r, views)
 		name := testCandidates[0].d.Name
 		nameAlias := center.GetByName(name)
 		nameAlias.Equal(testCandidates[0].d)
 		nameAlias.Name = "break"
 		r.NoError(center.Upsert(nameAlias))
 
-		center = candCenterFromNewCandidateStateManager(r, views)
+		center = candCenterFromCandidateStateManager(r, views)
 		n := center.GetByName("break")
 		n.Equal(nameAlias)
 		r.True(center.ContainsName("break"))
@@ -356,7 +356,7 @@ func TestFixAlias(t *testing.T) {
 		}
 
 		// verify cand center with name/op alias
-		center = candCenterFromNewCandidateStateManager(r, views)
+		center = candCenterFromCandidateStateManager(r, views)
 		n = center.GetByName("break")
 		n.Equal(nameAlias)
 		r.True(center.ContainsName("break"))
@@ -382,7 +382,7 @@ func TestFixAlias(t *testing.T) {
 		}
 
 		// verify cand center after Commit()
-		center = candCenterFromNewCandidateStateManager(r, views)
+		center = candCenterFromCandidateStateManager(r, views)
 		n = center.GetByName("break")
 		n.Equal(nameAlias)
 		n = center.GetByOwner(testCandidates[1].d.Owner)
@@ -479,7 +479,7 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 		views.Write(_protocolID, &viewData{
 			candCenter: candcenter,
 		})
-		candcenter = candCenterFromNewCandidateStateManager(r, views)
+		candcenter = candCenterFromCandidateStateManager(r, views)
 		r.True(testEqual(candcenter, CandidateList(cands)))
 	}
 	t.Run("nonstaked candidate not collision on bucket", func(t *testing.T) {
@@ -534,7 +534,7 @@ func TestMultipleNonStakingCandidate(t *testing.T) {
 	})
 }
 
-func candCenterFromNewCandidateStateManager(r *require.Assertions, views protocol.Views) *CandidateCenter {
+func candCenterFromCandidateStateManager(r *require.Assertions, views protocol.Views) *CandidateCenter {
 	// get cand center: csm.ConstructBaseView
 	v, err := views.Read(_protocolID)
 	r.NoError(err)
@@ -644,4 +644,96 @@ func TestCandidateUpsert(t *testing.T) {
 		r.Equal(len(tests)+1, m.Size())
 		r.Equal(cand, m.GetByIdentifier(cand.GetIdentifier()))
 	})
+}
+
+// TestCandidateCenter_HasBLSPubKeyOtherThan covers the uniqueness predicate
+// used by handleCandidateRegister and handleCandidateUpdate to enforce one BLS
+// pubkey per delegate — a precondition for IIP-52's quorum-counting model
+// (FastAggregateVerify dedups pubkeys but the signer bitmap does not).
+func TestCandidateCenter_HasBLSPubKeyOtherThan(t *testing.T) {
+	r := require.New(t)
+
+	pkA := []byte("dummy-bls-pubkey-A-48-bytes-pad-________________")[:48]
+	pkB := []byte("dummy-bls-pubkey-B-48-bytes-pad-________________")[:48]
+
+	mk := func(idx int, name string, pk []byte) *Candidate {
+		return &Candidate{
+			Owner:              identityset.Address(idx),
+			Operator:           identityset.Address(idx + 6),
+			Reward:             identityset.Address(idx),
+			Name:               name,
+			Votes:              big.NewInt(0),
+			SelfStake:          big.NewInt(0),
+			SelfStakeBucketIdx: uint64(idx),
+			BLSPubKey:          pk,
+		}
+	}
+
+	candA := mk(1, "cand-a", pkA)
+	c, err := NewCandidateCenter(nil)
+	r.NoError(err)
+	r.NoError(c.Upsert(candA))
+	r.NoError(c.commit())
+
+	r.False(c.HasBLSPubKeyOtherThan(nil, nil), "nil pubkey is not a collision")
+	r.False(c.HasBLSPubKeyOtherThan([]byte{}, nil), "empty pubkey is not a collision")
+	r.False(c.HasBLSPubKeyOtherThan(pkB, nil), "unregistered pubkey is not a collision")
+
+	// The sole holder asking about its own key is not a collision; anyone
+	// else asking about it is.
+	r.False(c.HasBLSPubKeyOtherThan(pkA, candA.GetIdentifier()),
+		"a candidate may carry its own key forward")
+	r.True(c.HasBLSPubKeyOtherThan(pkA, identityset.Address(9)),
+		"another candidate claiming the key is a collision")
+	r.True(c.HasBLSPubKeyOtherThan(pkA, nil),
+		"a first-time registrant has no identity to be excluded by")
+}
+
+// TestCandidateCenter_HasBLSPubKeyOtherThanIsOrderIndependent is the
+// regression guard for a consensus fork.
+//
+// Two candidates can already share a BLS pubkey: nothing forbids it before the
+// uniqueness rule activates, and it can be arranged deliberately ahead of the
+// fork. A "return the first holder" lookup walks candBase.identifierMap, whose
+// iteration order Go randomises per process, so each node would name a
+// different holder; every caller then compares that holder against itself to
+// choose between Success and ErrCandidateConflict, and the nodes would write
+// different receipt statuses and different receipt roots.
+//
+// The predicate has to give the same answer every time, for each of the two
+// holders and for a third party alike.
+func TestCandidateCenter_HasBLSPubKeyOtherThanIsOrderIndependent(t *testing.T) {
+	r := require.New(t)
+	pk := []byte("dummy-bls-pubkey-X-48-bytes-pad-________________")[:48]
+
+	mk := func(idx int, name string) *Candidate {
+		return &Candidate{
+			Owner:              identityset.Address(idx),
+			Operator:           identityset.Address(idx + 6),
+			Reward:             identityset.Address(idx),
+			Name:               name,
+			Votes:              big.NewInt(0),
+			SelfStake:          big.NewInt(0),
+			SelfStakeBucketIdx: uint64(idx),
+			BLSPubKey:          pk,
+		}
+	}
+	candA, candB := mk(1, "cand-a"), mk(2, "cand-b")
+
+	// Rebuild the center every round: the map ordering is drawn afresh, which
+	// is what produced a 176/24 split across 200 rounds before the fix.
+	for i := 0; i < 200; i++ {
+		c, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		r.NoError(c.Upsert(candA))
+		r.NoError(c.Upsert(candB))
+		r.NoError(c.commit())
+
+		r.True(c.HasBLSPubKeyOtherThan(pk, candA.GetIdentifier()),
+			"round %d: A must see B", i)
+		r.True(c.HasBLSPubKeyOtherThan(pk, candB.GetIdentifier()),
+			"round %d: B must see A", i)
+		r.True(c.HasBLSPubKeyOtherThan(pk, identityset.Address(9)),
+			"round %d: a third party must see both", i)
+	}
 }

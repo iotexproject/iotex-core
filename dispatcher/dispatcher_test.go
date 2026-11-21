@@ -103,7 +103,10 @@ func TestDispatcherV2(t *testing.T) {
 	r := require.New(t)
 	t.Run("limitBlockSync", func(t *testing.T) {
 		cfg := DefaultConfig
-		cfg.ProcessSyncRequestInterval = time.Second
+		// burst of 1 with effectively no refill: the first request from each
+		// peer is served, an immediate second from the same peer is throttled.
+		cfg.BlockSyncRequestBurst = 1
+		cfg.BlockSyncRequestRefillPerSecond = 0.0001
 		dsp, err := NewDispatcher(cfg, dummyVerificationFunc)
 		r.NoError(err)
 		r.NoError(dsp.Start(context.Background()))
@@ -281,4 +284,21 @@ func (cs *counterSubscriber) HandleActionRequest(context.Context, peer.AddrInfo,
 func (cs *counterSubscriber) HandleActionHash(context.Context, hash.Hash256, string) error {
 	cs.actionHash.Inc()
 	return nil
+}
+
+func TestHandleBroadcastDoesNotBlockOnRateLimit(t *testing.T) {
+	r := require.New(t)
+	ctx, d := startDispatcher(t)
+	defer stopDispatcher(ctx, d, t)
+
+	// far more actions from one sender than the per-sender burst; the old
+	// blocking Wait would hold the caller for ~(n-burst)/rate seconds
+	acts := make([]*iotextypes.Action, 1000)
+	for i := range acts {
+		acts[i] = &iotextypes.Action{SenderPubKey: []byte("same-sender")}
+	}
+	start := time.Now()
+	d.HandleBroadcast(ctx, defaultChainID, "peer1", &iotextypes.Actions{Actions: acts})
+	d.HandleBroadcast(ctx, defaultChainID, "peer1", &iotextypes.Action{SenderPubKey: []byte("same-sender")})
+	r.Less(time.Since(start), time.Second)
 }

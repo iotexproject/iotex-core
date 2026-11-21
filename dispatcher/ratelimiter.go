@@ -1,7 +1,6 @@
 package dispatcher
 
 import (
-	"context"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/cache"
@@ -43,7 +42,8 @@ func (rl *RateLimiter) Remainings(key string) int {
 	return int(rl.getLimiter(key).Tokens())
 }
 
-// Wait waits for 1 token to become available for the given key, up to the given duration.
-func (rl *RateLimiter) Wait(key string) {
-	rl.getLimiter(key).Wait(context.Background())
+// Allow reports whether a token is available for the given key and consumes it if so.
+// It never blocks.
+func (rl *RateLimiter) Allow(key string) bool {
+	return rl.getLimiter(key).Allow()
 }

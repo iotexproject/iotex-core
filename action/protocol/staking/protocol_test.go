@@ -19,6 +19,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
 	"github.com/iotexproject/iotex-core/v2/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/contractstaking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
 	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/pkg/unit"
@@ -36,6 +38,11 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(1), _bucket)
 	r.Equal(byte(2), _voterIndex)
 	r.Equal(byte(3), _candIndex)
+	r.Equal(byte(4), _endorsement)
+	r.Equal(byte(5), _candidateRewardSnapshot)
+	r.Equal(byte(6), contractstaking.LSDVoterIndexPrefix)
+	r.Equal(byte(7), eracow.ControlPrefix)
+	r.Equal(byte(8), eracow.EntryPrefix)
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -133,7 +140,7 @@ func TestProtocol(t *testing.T) {
 	_, ok := v.(*viewData)
 	r.True(ok)
 
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	r.NoError(err)
 	// load a number of candidates
 	for _, e := range testCandidates {
@@ -232,7 +239,7 @@ func TestCreatePreStates(t *testing.T) {
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	require.NoError(sm.WriteView(_protocolID, v))
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	require.NoError(err)
 	require.NotNil(csm)
 	require.NoError(p.CreatePreStates(ctx, sm))
@@ -257,6 +264,64 @@ func TestCreatePreStates(t *testing.T) {
 	total := &totalAmount{}
 	_, err = sm.State(total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.NoError(err)
+}
+
+func TestCreatePreStatesFixAliasForNonStop(t *testing.T) {
+	g := genesis.TestDefault()
+
+	run := func(t *testing.T, height uint64) CandidateList {
+		r := require.New(t)
+		ctrl := gomock.NewController(t)
+		sm := testdb.NewMockStateManager(ctrl)
+		p, err := NewProtocol(HelperCtx{
+			DepositGas:    nil,
+			BlockInterval: getBlockInterval,
+		}, &BuilderConfig{
+			Staking:                       g.Staking,
+			PersistStakingPatchBlock:      math.MaxUint64,
+			FixAliasForNonStopHeight:      height,
+			SkipContractStakingViewHeight: math.MaxUint64,
+			Revise: ReviseConfig{
+				VoteWeight: g.Staking.VoteWeightCalConsts,
+			},
+		}, nil, nil, nil, nil)
+		r.NoError(err)
+		ctx := protocol.WithBlockCtx(
+			genesis.WithGenesisContext(context.Background(), g),
+			protocol.BlockCtx{BlockHeight: height},
+		)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		v, err := p.Start(ctx, sm)
+		r.NoError(err)
+		r.NoError(sm.WriteView(_protocolID, v))
+
+		// seed the owner list so it is visible whether the rebuild ran
+		csr, err := ConstructBaseView(sm)
+		r.NoError(err)
+		base := csr.BaseView().candCenter.base
+		base.recordOwner(&Candidate{
+			Owner:              identityset.Address(1),
+			Operator:           identityset.Address(7),
+			Reward:             identityset.Address(1),
+			Name:               "test1",
+			Votes:              big.NewInt(2),
+			SelfStakeBucketIdx: 1,
+			SelfStake:          unit.ConvertIotxToRau(1200000),
+		})
+		r.Len(base.ownersList(), 1)
+
+		r.NoError(p.CreatePreStates(ctx, sm))
+		return base.ownersList()
+	}
+
+	t.Run("alias era", func(t *testing.T) {
+		// the rebuild resets the owner list
+		require.Nil(t, run(t, g.OkhotskBlockHeight-1))
+	})
+	t.Run("post okhotsk", func(t *testing.T) {
+		// candidate center no longer keeps aliases, the rebuild must not run
+		require.Len(t, run(t, g.OkhotskBlockHeight), 1)
+	})
 }
 
 func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
@@ -307,7 +372,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	_, err = NewCandidateStateManager(sm)
+	_, err = NewCandidateStateManagerWithContext(context.Background(), sm)
 	require.Error(err)
 
 	require.NoError(sm.WriteView(_protocolID, v))
@@ -324,6 +389,9 @@ func TestCreatePreStatesMigration(t *testing.T) {
 	mockContractStaking := NewMockContractStakingIndexer(ctrl)
 	mockContractStaking.EXPECT().ContractAddress().Return(identityset.Address(1)).Times(1)
 	mockContractStaking.EXPECT().LoadStakeView(gomock.Any(), gomock.Any()).Return(mockView, nil).Times(1)
+	// No Buckets() expectation: the only caller at CreatePreStates time was the
+	// voter-weight seeder, which is gone. The migration path itself never
+	// enumerates contract buckets.
 	mockContractStaking.EXPECT().StartHeight().Return(uint64(0)).Times(1)
 	mockContractStaking.EXPECT().Height().Return(uint64(0), nil).Times(1)
 	p, err := NewProtocol(HelperCtx{
@@ -477,6 +545,19 @@ func Test_CreateGenesisStates(t *testing.T) {
 		err = p.CreateGenesisStates(ctx, sm)
 		if err != nil {
 			require.Contains(err.Error(), test.errStr)
+		} else {
+			// Bootstrap candidates land in the candidate center with their
+			// self-stake weight already folded into Votes.
+			view, readErr := sm.ReadView(_protocolID)
+			require.NoError(readErr)
+			cc := view.(*viewData).candCenter
+			for _, bootstrap := range test.BootstrapCandidate {
+				owner, parseErr := address.FromString(bootstrap.OwnerAddress)
+				require.NoError(parseErr)
+				cand := cc.GetByOwner(owner)
+				require.NotNil(cand)
+				require.Positive(cand.Votes.Sign())
+			}
 		}
 	}
 }
@@ -500,7 +581,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 		}
 		candCfgs := []*candidateConfig{}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
 		r.NoError(err)
@@ -517,7 +598,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -535,7 +616,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -554,7 +635,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[1])
@@ -572,7 +653,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestState(t, ctrl, bucketCfgs, candCfgs)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -590,7 +671,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 0)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
@@ -608,7 +689,7 @@ func TestIsSelfStakeBucket(t *testing.T) {
 			{identityset.Address(1), identityset.Address(11), identityset.Address(21), "cand1"},
 		}
 		sm, _, buckets, _ := initTestStateWithHeight(t, ctrl, bucketCfgs, candCfgs, 2)
-		csm, err := NewCandidateStateManager(sm)
+		csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 		r.NoError(err)
 		selfStake, err := isSelfStakeBucket(featureCtxPreHF, csm, buckets[0])
 		r.NoError(err)
@@ -652,7 +733,7 @@ func TestSlashCandidate(t *testing.T) {
 			},
 		},
 	}))
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManagerWithContext(context.Background(), sm)
 	require.NoError(err)
 
 	p := &Protocol{
@@ -736,6 +817,8 @@ func TestSlashCandidate(t *testing.T) {
 		cand := csm.GetByIdentifier(owner)
 		require.Equal(remaining.String(), cand.SelfStake.String())
 		require.NoError(p.SlashCandidateByOperator(ctx, sm, cand.Operator, big.NewInt(11)))
+		bucket, err = csm.NativeBucket(bucketIdx)
+		require.NoError(err)
 		cl, err = p.ActiveCandidates(
 			ctx,
 			sm,

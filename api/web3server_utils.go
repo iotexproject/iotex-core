@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
@@ -38,6 +40,22 @@ import (
 
 func hexStringToNumber(hexStr string) (uint64, error) {
 	return strconv.ParseUint(util.Remove0xPrefix(hexStr), 16, 64)
+}
+
+// hexOrDecimalToNumber parses a JSON-RPC integer that callers may send either as
+// a 0x-prefixed hex quantity ("0xa") or as a bare decimal ("10"). It follows
+// go-ethereum's math.HexOrDecimal64 semantics: only the 0x prefix selects hex, so
+// a bare "10" keeps meaning ten and is never reinterpreted as sixteen.
+func hexOrDecimalToNumber(str string) (uint64, error) {
+	// math.ParseUint64 maps "" to 0; reject it so a missing value stays an error.
+	if str == "" {
+		return 0, errors.Wrapf(errUnkownType, "number: %s", str)
+	}
+	num, ok := math.ParseUint64(str)
+	if !ok {
+		return 0, errors.Wrapf(errUnkownType, "number: %s", str)
+	}
+	return num, nil
 }
 
 func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
@@ -120,6 +138,7 @@ func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*a
 	}
 	return &getBlockResult{
 		blk:          blk,
+		receipts:     receipts,
 		transactions: transactions,
 	}, nil
 }
@@ -161,19 +180,34 @@ func (svr *web3Handler) parseBlockNumber(str string) (uint64, error) {
 	switch str {
 	case _earliestBlockNumber:
 		return 1, nil
-	case "", _pendingBlockNumber, _latestBlockNumber:
+	case "", _pendingBlockNumber, _latestBlockNumber, _safeBlockNumber, _finalizedBlockNumber:
+		// Roll-DPoS gives deterministic instant finality, so the committed tip is
+		// already irreversible: safe and finalized both resolve to the latest block.
 		return svr.coreService.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
 	}
 }
 
+// parseBlockRange returns the block range to query logs from. The range is
+// empty (to < from) when it ends at block 0, which holds no logs; callers must
+// not pass it on as is, since LogsInRange reads a 0 as the tip.
 func (svr *web3Handler) parseBlockRange(fromStr string, toStr string) (from uint64, to uint64, err error) {
-	from, err = svr.parseBlockNumber(fromStr)
-	if err != nil {
+	if from, err = svr.parseBlockNumber(fromStr); err != nil {
 		return
 	}
-	to, err = svr.parseBlockNumber(toStr)
+	if to, err = svr.parseBlockNumber(toStr); err != nil {
+		return
+	}
+	// same as geth: reject a range whose end is below its start
+	if from > to {
+		err = errors.Wrapf(errInvalidFormat, "invalid block range: fromBlock %d > toBlock %d", from, to)
+		return
+	}
+	// logs start at block 1
+	if from == 0 {
+		from = 1
+	}
 	return
 }
 
@@ -200,6 +234,32 @@ func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope,
 	return elpBuilder.BuildTransfer(tx)
 }
 
+// isNativeProtocolTx reports whether the transaction is addressed to a native
+// protocol pseudo-address, i.e. whether ethTxToEnvelope decoded it into a
+// protocol action rather than a transfer or an execution.
+//
+// Those actions carry their own intrinsic gas and are not charged by the EVM,
+// so the 21000 floor eth clients expect for a call does not apply to them --
+// see estimateGas. The address set is kept identical to the dispatch in
+// ethTxToEnvelope and to coreService.checkContract; widening one without the
+// others would make eth_estimateGas and eth_sendRawTransaction disagree about
+// what an action even is.
+func isNativeProtocolTx(tx *types.Transaction) bool {
+	if tx.To() == nil {
+		return false
+	}
+	ioAddr, err := address.FromBytes(tx.To().Bytes())
+	if err != nil {
+		return false
+	}
+	switch ioAddr.String() {
+	case address.StakingProtocolAddr, address.RewardingProtocol:
+		return true
+	default:
+		return false
+	}
+}
+
 func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 	if to == "" {
 		return true, nil
@@ -220,6 +280,10 @@ func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string
 	if err != nil {
 		return nil, err
 	}
+	if to < from {
+		// empty range, see parseBlockRange
+		return []*getLogsResult{}, nil
+	}
 	logs, hashes, err := svr.coreService.LogsInRange(filter, from, to, 0)
 	if err != nil {
 		return nil, err
@@ -229,6 +293,39 @@ func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string
 		ret = append(ret, &getLogsResult{hashes[i], logs[i]})
 	}
 	return ret, nil
+}
+
+func (svr *web3Handler) getLogsInBlock(blockHashStr string, addrs []string, topics [][]string) ([]*getLogsResult, error) {
+	blkHash, err := parseBlockHash(blockHashStr)
+	if err != nil {
+		return nil, err
+	}
+	filter, err := newLogFilterFrom(addrs, topics)
+	if err != nil {
+		return nil, err
+	}
+	logs, err := svr.coreService.LogsInBlockByHash(filter, blkHash)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*getLogsResult, 0, len(logs))
+	for i := range logs {
+		ret = append(ret, &getLogsResult{blkHash, logs[i]})
+	}
+	return ret, nil
+}
+
+func parseBlockHash(str string) (hash.Hash256, error) {
+	// HexStringToHash256 pads a short input and truncates a long one, so check
+	// the length here
+	b, err := hex.DecodeString(util.Remove0xPrefix(str))
+	if err != nil {
+		return hash.ZeroHash256, errors.Wrapf(errInvalidFormat, "invalid blockHash %s: %v", str, err)
+	}
+	if len(b) != len(hash.ZeroHash256) {
+		return hash.ZeroHash256, errors.Wrapf(errInvalidFormat, "invalid blockHash %s: length %d, expecting %d", str, len(b), len(hash.ZeroHash256))
+	}
+	return hash.BytesToHash256(b), nil
 }
 
 // construct filter topics and addresses
@@ -276,6 +373,17 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 		req := in.Array()[0]
 		logReq.FromBlock = req.Get("fromBlock").String()
 		logReq.ToBlock = req.Get("toBlock").String()
+		logReq.BlockHash = req.Get("blockHash").String()
+		// same as geth's FilterCriteria: blockHash selects a single block, so it
+		// cannot be combined with a block range
+		if logReq.BlockHash != "" {
+			if logReq.FromBlock != "" || logReq.ToBlock != "" {
+				return nil, errors.Wrap(errInvalidFormat, "blockHash cannot be combined with fromBlock or toBlock")
+			}
+			if _, err := parseBlockHash(logReq.BlockHash); err != nil {
+				return nil, err
+			}
+		}
 		for _, addr := range req.Get("address").Array() {
 			logReq.Address = append(logReq.Address, addr.String())
 		}
@@ -463,11 +571,18 @@ func (call *callMsg) toUnsignedTx(chainID uint32) (*types.Transaction, error) {
 		if toAddr == nil {
 			return nil, errors.Wrap(action.ErrSetCodeTxCreate, "contract creation with SetCodeTx is not supported")
 		}
+		value := new(uint256.Int)
+		if call.Value != nil {
+			var overflow bool
+			if value, overflow = uint256.FromBig(call.Value); overflow {
+				return nil, errors.New("value overflows uint256")
+			}
+		}
 		tx = types.NewTx(&types.SetCodeTx{
 			ChainID:    uint256.NewInt(uint64(chainID)),
 			Gas:        call.Gas,
 			To:         *toAddr,
-			Value:      uint256.MustFromBig(call.Value),
+			Value:      value,
 			Data:       call.Data,
 			AccessList: call.AccessList,
 			AuthList:   call.AuthorizationList,
@@ -691,6 +806,7 @@ func newGetTransactionResult(
 func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 	var (
 		enableMemory, disableStack, disableStorage, enableReturnData bool
+		limit                                                        int
 		tracerJs, tracerTimeout                                      *string
 		tracerConfig                                                 json.RawMessage
 	)
@@ -699,6 +815,7 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 		disableStack = options.Get("disableStack").Bool()
 		disableStorage = options.Get("disableStorage").Bool()
 		enableReturnData = options.Get("enableReturnData").Bool()
+		limit = int(options.Get("limit").Int())
 		trace := options.Get("tracer")
 		if trace.Exists() {
 			tracerJs = new(string)
@@ -721,17 +838,147 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 			DisableStack:     disableStack,
 			DisableStorage:   disableStorage,
 			EnableReturnData: enableReturnData,
+			Limit:            limit,
 		},
 		TracerConfig: tracerConfig,
 	}
 	return cfg
 }
 
+// serializeStopAndResult returns t with its Stop and GetResult serialized
+// against each other.
+//
+// The timeout watchdog armed by parseTracer calls Stop from its own goroutine
+// while the goroutine running the trace calls GetResult. geth's StructLogger
+// stores the interruption reason on a plain field -- Stop writes l.reason and
+// only then flips the atomic l.interrupt, and GetResult reads l.reason without
+// consulting that atomic -- so the two overlap without a happens-before edge.
+// Holding a mutex across both calls supplies it. Hooks are passed through
+// untouched: they run on the tracing goroutine and coordinate through
+// l.interrupt, which is already atomic.
+func serializeStopAndResult(t *tracers.Tracer) *tracers.Tracer {
+	var (
+		mu        sync.Mutex
+		getResult = t.GetResult
+		stop      = t.Stop
+	)
+	guarded := &tracers.Tracer{Hooks: t.Hooks}
+	if getResult != nil {
+		guarded.GetResult = func() (json.RawMessage, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			return getResult()
+		}
+	}
+	if stop != nil {
+		guarded.Stop = func(err error) {
+			mu.Lock()
+			defer mu.Unlock()
+			stop(err)
+		}
+	}
+	return guarded
+}
+
+// traceTimeout returns the timeout for a single transaction trace, which applies
+// to all tracer types: the caller's value, capped at maxTraceTimeout.
+func traceTimeout(config *tracers.TraceConfig) (time.Duration, error) {
+	if config == nil || config.Timeout == nil {
+		return defaultTraceTimeout, nil
+	}
+	timeout, err := time.ParseDuration(*config.Timeout)
+	if err != nil {
+		return 0, err
+	}
+	if timeout > maxTraceTimeout {
+		timeout = maxTraceTimeout
+	}
+	return timeout, nil
+}
+
+// structLogLimit returns the output limit for a struct logger: the caller's
+// value, defaulted when unset and capped at maxTraceOutputLimit. geth reads a
+// zero limit as unlimited, and every opcode appends a JSON entry to a buffer
+// held until GetResult, so an unset limit lets one call retain output in
+// proportion to the gas it is given.
+func structLogLimit(cfg *logger.Config) int {
+	if cfg == nil || cfg.Limit <= 0 {
+		return defaultTraceOutputLimit
+	}
+	return min(cfg.Limit, maxTraceOutputLimit)
+}
+
+// minStructLogEntry is a lower bound on the size of one JSON-encoded struct-log
+// entry: {"pc":0,"op":"LT","gas":0,"gasCost":0,"depth":1} is 49 bytes.
+const minStructLogEntry = 48
+
+// newStructLogTracer returns a struct logger whose output is bounded by
+// structLogLimit. GetResult reports errTraceOutputLimit instead of returning a
+// trace the limit has truncated, which would read as complete.
+//
+// The logger stops recording at the limit but the EVM keeps running, so the
+// trace is also aborted early: once more opcodes have been recorded than can
+// fit in the limit at minStructLogEntry bytes each, the result is certain to
+// exceed it, and abort is called to stop the tracer and the EVM.
+func newStructLogTracer(cfg *logger.Config, abort func(error)) *tracers.Tracer {
+	var c logger.Config
+	if cfg != nil {
+		c = *cfg
+	}
+	limit := structLogLimit(cfg)
+	c.Limit = limit
+	loger := logger.NewStructLogger(&c)
+	hooks := loger.Hooks()
+	var (
+		// hooks run on the goroutine executing the EVM, so no synchronization
+		// is needed
+		steps     int
+		inSysCall bool
+		aborted   bool
+		onOpcode  = hooks.OnOpcode
+		sysStart  = hooks.OnSystemCallStartV2
+		sysEnd    = hooks.OnSystemCallEnd
+	)
+	hooks.OnOpcode = func(pc uint64, op byte, gas, cost uint64, scope tracing.OpContext, rData []byte, depth int, err error) {
+		onOpcode(pc, op, gas, cost, scope, rData, depth, err)
+		// the logger does not record opcodes run inside a system call
+		if inSysCall || aborted {
+			return
+		}
+		if steps++; steps > limit/minStructLogEntry {
+			aborted = true
+			abort(errors.Wrapf(errTraceOutputLimit, "limit %d bytes", limit))
+		}
+	}
+	hooks.OnSystemCallStartV2 = func(env *tracing.VMContext) {
+		inSysCall = true
+		sysStart(env)
+	}
+	hooks.OnSystemCallEnd = func() {
+		inSysCall = false
+		sysEnd()
+	}
+	return &tracers.Tracer{
+		Hooks: hooks,
+		GetResult: func() (json.RawMessage, error) {
+			res, err := loger.GetResult()
+			if err != nil {
+				return nil, err
+			}
+			if len(res) > limit {
+				return nil, errors.Wrapf(errTraceOutputLimit, "limit %d bytes", limit)
+			}
+			return res, nil
+		},
+		Stop: loger.Stop,
+	}
+}
+
 // parseTracer builds the tracer described by config and arms a timeout watchdog
 // that stops the tracer once the deadline expires. The watchdog covers every
 // tracer type (default struct logger, configured struct logger and named
-// JS/native tracers), since all of them perform per-opcode work that must be
-// bounded.
+// native tracers), since all of them perform per-opcode work that must be
+// bounded. JS tracers are refused.
 //
 // The returned cleanup func MUST be called by the caller *after* the trace has
 // finished executing: it disarms the watchdog goroutine (so it does not leak and
@@ -739,16 +986,30 @@ func parseTracerConfig(options *gjson.Result) *tracers.TraceConfig {
 // own return, cleanup cannot be deferred here — ownership is handed to the caller
 // that actually runs the EVM.
 func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.TraceConfig) (*tracers.Tracer, context.CancelFunc, error) {
-	var tracer *tracers.Tracer
+	var (
+		tracer       *tracers.Tracer
+		evmCanceller = evm.GetTraceCanceller(ctx)
+	)
+	// abort stops the tracer and the EVM it traces. tracer is reassigned below
+	// before any hook runs, so abort always stops the final, serialized tracer.
+	abort := func(err error) {
+		tracer.Stop(err)
+		// stopping the tracer only stops result collection; also abort the
+		// EVM(s) so the execution doesn't keep burning CPU until gas exhaustion
+		// (geth pairs tracer.Stop with EVM.Cancel the same way)
+		if evmCanceller != nil {
+			evmCanceller.Cancel()
+		}
+	}
 	switch {
 	case config == nil:
-		loger := logger.NewStructLogger(nil)
-		tracer = &tracers.Tracer{
-			Hooks:     loger.Hooks(),
-			GetResult: loger.GetResult,
-			Stop:      loger.Stop,
-		}
+		tracer = newStructLogTracer(nil, abort)
 	case config.Tracer != nil:
+		// a JS tracer runs caller-supplied code while it is being constructed,
+		// before the timeout below is armed; only native tracers are served
+		if tracers.DefaultDirectory.IsJS(*config.Tracer) {
+			return nil, nil, errJSTracer
+		}
 		cc, err := evm.NewChainConfig(ctx)
 		if err != nil {
 			return nil, nil, err
@@ -759,22 +1020,16 @@ func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.Tr
 		}
 		tracer = t
 	default:
-		loger := logger.NewStructLogger(config.Config)
-		tracer = &tracers.Tracer{
-			Hooks:     loger.Hooks(),
-			GetResult: loger.GetResult,
-			Stop:      loger.Stop,
-		}
+		tracer = newStructLogTracer(config.Config, abort)
 	}
 
-	// Define a meaningful timeout for a single transaction trace. This applies
-	// to all tracer types.
-	timeout := defaultTraceTimeout
-	if config != nil && config.Timeout != nil {
-		var err error
-		if timeout, err = time.ParseDuration(*config.Timeout); err != nil {
-			return nil, nil, err
-		}
+	// The watchdog below calls Stop concurrently with the caller's GetResult,
+	// so hand back a tracer that serializes the two.
+	tracer = serializeStopAndResult(tracer)
+
+	timeout, err := traceTimeout(config)
+	if err != nil {
+		return nil, nil, err
 	}
 	// Arm a watchdog that stops the tracer if the trace runs past the deadline.
 	// cleanup (context cancel) is returned to the caller and is invoked once
@@ -785,17 +1040,10 @@ func parseTracer(ctx context.Context, txctx *tracers.Context, config *tracers.Tr
 	// return the "execution timeout" error, which the caller surfaces as the RPC
 	// error.
 	deadlineCtx, cancel := context.WithTimeout(context.Background(), timeout)
-	evmCanceller := evm.GetTraceCanceller(ctx)
 	go func() {
 		<-deadlineCtx.Done()
 		if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
-			tracer.Stop(errors.New("execution timeout"))
-			// stopping the tracer only stops result collection; also abort
-			// the EVM(s) so the execution doesn't keep burning CPU until gas
-			// exhaustion (geth pairs tracer.Stop with EVM.Cancel the same way)
-			if evmCanceller != nil {
-				evmCanceller.Cancel()
-			}
+			abort(errors.New("execution timeout"))
 		}
 	}()
 	return tracer, cancel, nil

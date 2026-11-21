@@ -44,6 +44,7 @@ var (
 	_secretPath    string
 	_subChainPath  string
 	_plugins       strs
+	_stopAtHeight  uint64
 )
 
 type strs []string
@@ -65,6 +66,8 @@ func init() {
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
 	flag.Var(&_plugins, "plugin", "Plugin of the node")
+	flag.Uint64Var(&_stopAtHeight, "stop-at-height", 0,
+		"Replay blocks only up to this height, then shut down cleanly (0 = run normally)")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"usage: server -config-path=[string]\n")
@@ -116,6 +119,9 @@ func main() {
 	}
 
 	cfg.Genesis = genesisCfg
+	if _stopAtHeight > 0 {
+		cfg.Chain.StopAtHeight = _stopAtHeight
+	}
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
 	cfgToLog.Network.MasterKey = ""

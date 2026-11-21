@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -29,19 +30,61 @@ import (
 type (
 	// Config is the config for dispatcher
 	Config struct {
-		ActionChanSize             uint          `yaml:"actionChanSize"`
-		BlockChanSize              uint          `yaml:"blockChanSize"`
-		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
-		BlockSyncLimit             uint          `yaml:"blockSyncLimit"`
-		ConsensusChanSize          uint          `yaml:"consensusChanSize"`
-		MiscChanSize               uint          `yaml:"miscChanSize"`
+		ActionChanSize    uint `yaml:"actionChanSize"`
+		BlockChanSize     uint `yaml:"blockChanSize"`
+		BlockSyncChanSize uint `yaml:"blockSyncChanSize"`
+		BlockSyncLimit    uint `yaml:"blockSyncLimit"`
+		ConsensusChanSize uint `yaml:"consensusChanSize"`
+		MiscChanSize      uint `yaml:"miscChanSize"`
+		// Deprecated: block-sync requests are now throttled by a per-peer token
+		// bucket (see BlockSyncRequestBurst / BlockSyncRequestRefillPerSecond).
+		// Retained for config compatibility; no longer read.
 		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
 		AccountRateLimit           uint          `yaml:"accountRateLimit"`
-		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
+		// BlockSyncRequestBurst is the per-peer burst of inbound block-sync
+		// requests served before throttling; <=0 falls back to the default.
+		BlockSyncRequestBurst int `yaml:"blockSyncRequestBurst"`
+		// BlockSyncRequestRefillPerSecond refills each peer's block-sync request
+		// bucket; <=0 falls back to the default.
+		BlockSyncRequestRefillPerSecond float64 `yaml:"blockSyncRequestRefillPerSecond"`
 	}
 )
 
+const (
+	// maxActionsPerMessage bounds the per-element work one gossiped Actions
+	// message can force in the pubsub validation goroutine. The message
+	// batcher emits at most pkg/messagebatcher sizeLimit (1000) actions per
+	// batch, so this leaves 2x headroom for legitimate traffic.
+	maxActionsPerMessage = 2048
+
+	// maxActionSyncHashes bounds the reflected unicasts one ActionSync request
+	// can trigger on the single misc worker. actsync requests exactly one hash
+	// per message (actsync/actionsync.go), so this is generous.
+	maxActionSyncHashes = 64
+
+	// syncRequestLimiterSize bounds the per-peer block-request throttle state:
+	// the token buckets live in an LRU of this size, so a flood of distinct
+	// (authenticated) peers cannot grow the map without bound.
+	syncRequestLimiterSize = 4096
+
+	// syncRequestBurst is the per-peer block-request burst. blockSyncer.sync()
+	// splits the sync window into BufferSize/IntervalSize consecutive interval
+	// requests (10 with the defaults) and may retry, so a bucket this size lets
+	// an honest catch-up burst through in one round while still bounding a peer
+	// that keeps asking. Each served request is additionally range-clamped in
+	// ProcessSyncRequest, so egress per request is bounded too.
+	syncRequestBurst = 30
+
+	// syncRequestRefillPerSecond refills the per-peer bucket so sustained honest
+	// sync (retried every 30s) keeps flowing while abusive volume is throttled.
+	syncRequestRefillPerSecond = 5
+)
+
 var (
+	// ErrMsgTooLarge is returned for an inbound message carrying more elements
+	// than the node is willing to process.
+	ErrMsgTooLarge = errors.New("message carries too many elements")
+
 	// DefaultConfig is the default config
 	DefaultConfig = Config{
 		ActionChanSize:    5000,
@@ -52,7 +95,9 @@ var (
 		MiscChanSize:      1000,
 		AccountRateLimit:  100,
 
-		ProcessSyncRequestInterval: 0 * time.Second,
+		ProcessSyncRequestInterval:      0, // deprecated, no longer read
+		BlockSyncRequestBurst:           syncRequestBurst,
+		BlockSyncRequestRefillPerSecond: syncRequestRefillPerSecond,
 	}
 )
 
@@ -80,10 +125,18 @@ var (
 		},
 		[]string{"method", "succeed"},
 	)
+	msgPanicMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_dispatch_msg_panic",
+			Help: "Inbound messages whose handler panicked and was recovered.",
+		},
+		[]string{"queue", "msgType"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(requestMtc)
+	prometheus.MustRegister(msgPanicMtc)
 }
 
 type (
@@ -101,10 +154,8 @@ type (
 		// subscribers
 		subscribers   map[uint32]Subscriber
 		subscribersMU sync.RWMutex
-		// filter for blocksync message
-		peerLastSync     map[string]time.Time
-		syncInterval     time.Duration
-		peerSyncLock     sync.RWMutex
+		// per-peer token bucket throttling inbound block-sync requests
+		syncRateLimiter  *RateLimiter
 		ratelimiter      *RateLimiter
 		verificationFunc VerificationFunc
 	}
@@ -121,10 +172,17 @@ type (
 
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(cfg Config, verificationFunc VerificationFunc) (Dispatcher, error) {
+	syncBurst := cfg.BlockSyncRequestBurst
+	if syncBurst <= 0 {
+		syncBurst = syncRequestBurst
+	}
+	syncRefill := cfg.BlockSyncRequestRefillPerSecond
+	if syncRefill <= 0 {
+		syncRefill = syncRequestRefillPerSecond
+	}
 	d := &IotxDispatcher{
 		subscribers:      make(map[uint32]Subscriber),
-		peerLastSync:     make(map[string]time.Time),
-		syncInterval:     cfg.ProcessSyncRequestInterval,
+		syncRateLimiter:  NewRateLimiter(syncRequestLimiterSize, rate.Limit(syncRefill), syncBurst),
 		eventAudit:       make(map[iotexrpc.MessageType]int),
 		ratelimiter:      NewRateLimiter(100000, rate.Limit(cfg.AccountRateLimit), int(cfg.AccountRateLimit)),
 		verificationFunc: verificationFunc,
@@ -216,6 +274,12 @@ func (d *IotxDispatcher) ValidateMessage(pMsg proto.Message) (bool, error) {
 		return d.ratelimiter.Remainings(sender) == 0, nil
 	case *iotextypes.Actions:
 		actions := pb.GetActions()
+		// bound the per-element work before doing any of it: every action below
+		// costs a full secp256k1 recovery, inline in the pubsub validation
+		// goroutine.
+		if len(actions) > maxActionsPerMessage {
+			return true, errors.Wrapf(ErrMsgTooLarge, "actions = %d, max %d", len(actions), maxActionsPerMessage)
+		}
 		counters := make(map[string]int, len(actions))
 		for _, act := range actions {
 			sender, err := d.verificationFunc(act)
@@ -258,7 +322,11 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 	switch actions := msgProto.(type) {
 	case *iotextypes.Actions:
 		for _, act := range actions.Actions {
-			d.ratelimiter.Wait(string(act.SenderPubKey))
+			// never block the pubsub delivery goroutine; drop actions over the per-sender rate
+			if !d.ratelimiter.Allow(string(act.SenderPubKey)) {
+				requestMtc.WithLabelValues("RateLimitAction", "false").Inc()
+				continue
+			}
 			msg := &message{
 				ctx:     ctx,
 				chainID: chainID,
@@ -270,7 +338,10 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 		}
 		return
 	case *iotextypes.Action:
-		d.ratelimiter.Wait(string(actions.SenderPubKey))
+		if !d.ratelimiter.Allow(string(actions.SenderPubKey)) {
+			requestMtc.WithLabelValues("RateLimitAction", "false").Inc()
+			return
+		}
 	}
 	msg := &message{
 		ctx:     ctx,
@@ -313,17 +384,13 @@ func (d *IotxDispatcher) filter(msg *message) bool {
 	if msg.msgType != iotexrpc.MessageType_BLOCK_REQUEST {
 		return true
 	}
-	// filter block sync to avoid too frequent sync
-	now := time.Now()
-	peerID := msg.peer
-	d.peerSyncLock.Lock()
-	defer d.peerSyncLock.Unlock()
-	last, ok := d.peerLastSync[peerID]
-	if ok && last.Add(d.syncInterval).After(now) {
-		return false
-	}
-	d.peerLastSync[peerID] = now
-	return true
+	// Throttle block-sync requests with a per-peer token bucket. An honest
+	// requester bursts a whole sync window (BufferSize/IntervalSize consecutive
+	// interval requests) at once and is served; a peer that keeps asking beyond
+	// the refill rate is dropped. The bucket size absorbs the honest burst, the
+	// per-request range clamp in ProcessSyncRequest bounds egress per request,
+	// and the limiter's LRU bounds the per-peer state.
+	return d.syncRateLimiter.Allow(msg.peer)
 }
 
 func (d *IotxDispatcher) dispatchMsg(message *message) {
@@ -385,6 +452,15 @@ func (d *IotxDispatcher) dispatchMsg(message *message) {
 	case *iotexrpc.ActionSync:
 		if message.peerInfo == nil {
 			log.L().Warn("ActionSync message must be unicast.")
+			return
+		}
+		// each hash costs a pool lookup and, on a hit, a reflected unicast, all
+		// on the single misc worker -- bound the reflection factor.
+		if len(msg.Hashes) > maxActionSyncHashes {
+			log.L().Warn("ActionSync message carries too many hashes.",
+				zap.Int("hashes", len(msg.Hashes)),
+				zap.Int("max", maxActionSyncHashes),
+				zap.String("peer", message.peer))
 			return
 		}
 		for _, h := range msg.Hashes {

@@ -40,6 +40,9 @@ import (
 const (
 	_successStr = "success"
 	_failureStr = "failure"
+	// _unknownMsgTypeLabel is the "message" label value recorded for any
+	// message type outside the iotexrpc.MessageType enum
+	_unknownMsgTypeLabel = "unknown"
 )
 
 var (
@@ -48,7 +51,9 @@ var (
 			Name: "iotex_p2p_message_counter",
 			Help: "P2P message stats",
 		},
-		[]string{"protocol", "message", "direction", "peer", "status"},
+		// deliberately no per-peer label: peer identities are unbounded (a
+		// libp2p identity is just a keypair), so the label set would be too.
+		[]string{"protocol", "message", "direction", "status"},
 	)
 	_p2pMsgLatency = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -65,6 +70,18 @@ var (
 func init() {
 	prometheus.MustRegister(_p2pMsgCounter)
 	prometheus.MustRegister(_p2pMsgLatency)
+}
+
+// msgTypeLabel returns the "message" label value for a message type. Message
+// types are read from remote peers' payloads before they are validated, so
+// only values defined in the iotexrpc.MessageType enum keep their numeric
+// label; everything else shares a single label value. This keeps the number
+// of series in _p2pMsgCounter and _p2pMsgLatency bounded.
+func msgTypeLabel(t iotexrpc.MessageType) string {
+	if _, ok := iotexrpc.MessageType_name[int32(t)]; !ok {
+		return _unknownMsgTypeLabel
+	}
+	return strconv.Itoa(int(t))
 }
 
 const (
@@ -151,7 +168,6 @@ type (
 	cacheValue struct {
 		msgType   iotexrpc.MessageType
 		message   proto.Message
-		peerID    string
 		timestamp time.Time
 	}
 
@@ -307,7 +323,9 @@ func (p *agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	broadcastValidator := func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+	// Unlike the delivery callback below, a pubsub validator receives the
+	// immediate forwarding peer as pid. Do not use it to attribute block authorship.
+	validateBroadcast := func(ctx context.Context, pid peer.ID, msg *pubsub.Message, allowType func(iotexrpc.MessageType) bool) pubsub.ValidationResult {
 		if pid.String() == host.HostIdentity() {
 			return pubsub.ValidationAccept
 		}
@@ -318,6 +336,10 @@ func (p *agent) Start(ctx context.Context) error {
 		}
 		if broadcast.ChainId != p.chainID {
 			log.L().Debug("chain ID mismatch", zap.Uint32("received", broadcast.ChainId), zap.Uint32("expecting", p.chainID))
+			return pubsub.ValidationReject
+		}
+		if allowType != nil && !allowType(broadcast.MsgType) {
+			log.L().Debug("unexpected message type for topic", zap.Int("type", int(broadcast.MsgType)))
 			return pubsub.ValidationReject
 		}
 		pMsg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
@@ -342,10 +364,16 @@ func (p *agent) Start(ctx context.Context) error {
 		p.caches.Add(hash.Hash256b(msg.Data), &cacheValue{
 			msgType:   broadcast.MsgType,
 			message:   pMsg,
-			peerID:    pid.String(),
 			timestamp: time.Now(),
 		})
 		return pubsub.ValidationAccept
+	}
+	broadcastValidator := func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+		return validateBroadcast(ctx, pid, msg, nil)
+	}
+	// only consensus messages are published on the consensus topic (see messageTopic)
+	consensusValidator := func(ctx context.Context, pid peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+		return validateBroadcast(ctx, pid, msg, isConsensusTopicMsgType)
 	}
 	broadcastHandler := func(ctx context.Context, pid peer.ID, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
@@ -354,25 +382,30 @@ func (p *agent) Start(ctx context.Context) error {
 			return nil
 		}
 		var (
-			peerID  string
 			pMsg    proto.Message
 			msgType iotexrpc.MessageType
 			latency int64
 		)
+		// go-p2p v0.3.7 passes msg.GetFrom(): the signed pubsub publisher,
+		// not msg.ReceivedFrom (the forwarding hop). Its default StrictSign
+		// policy authenticates this identity. Never use broadcast.PeerId:
+		// that payload field is publisher-controlled and can name a victim.
+		// Downstream this identity keys bookkeeping and BlockPeer().
+		peerID := pid.String()
 		defer func() {
 			status := _successStr
 			if err != nil {
 				status = _failureStr
 			}
-			_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "in", peerID, status).Inc()
-			_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), status).Observe(float64(latency))
+			label := msgTypeLabel(msgType)
+			_p2pMsgCounter.WithLabelValues("broadcast", label, "in", status).Inc()
+			_p2pMsgLatency.WithLabelValues("broadcast", label, status).Observe(float64(latency))
 		}()
 		// Check the cache first
 		cache, ok := p.caches.Get(hash.Hash256b(data))
 		if ok {
 			value := cache.(*cacheValue)
 			pMsg = value.message
-			peerID = value.peerID
 			msgType = value.msgType
 			latency = time.Since(value.timestamp).Nanoseconds() / time.Millisecond.Nanoseconds()
 		} else {
@@ -389,7 +422,6 @@ func (p *agent) Start(ctx context.Context) error {
 				err = errors.Wrap(err, "error when typifying broadcast message")
 				return
 			}
-			peerID = broadcast.PeerId
 			msgType = broadcast.MsgType
 		}
 		// TODO: skip signature verification for actions
@@ -405,11 +437,14 @@ func (p *agent) Start(ctx context.Context) error {
 		broadcastValidator, broadcastHandler); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
-	// add consensus topic
+	// add consensus topic. It carries a dedicated validator that, on top of the
+	// chain-ID and structural checks, rejects any non-CONSENSUS message type:
+	// without one, consensus gossip would skip those checks entirely and land
+	// straight on the single consensus worker.
 	if err := host.AddBroadcastPubSub(
 		ctx,
 		_broadcastTopic+_broadcastSubTopicConsensus+p.topicSuffix,
-		nil, broadcastHandler); err != nil {
+		consensusValidator, broadcastHandler); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
 	// add action topic
@@ -443,8 +478,10 @@ func (p *agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = _failureStr
 			}
-			_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
-			_p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
+			// unicast.MsgType is still unvalidated on the error paths below
+			label := msgTypeLabel(unicast.MsgType)
+			_p2pMsgCounter.WithLabelValues("unicast", label, "in", status).Inc()
+			_p2pMsgLatency.WithLabelValues("unicast", label, status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &unicast); err != nil {
 			err = errors.Wrap(err, "error when marshaling unicast message")
@@ -534,9 +571,8 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		}
 		_p2pMsgCounter.WithLabelValues(
 			"broadcast",
-			strconv.Itoa(int(msgType)),
+			msgTypeLabel(msgType),
 			"out",
-			host.HostIdentity(),
 			status,
 		).Inc()
 	}()
@@ -565,6 +601,10 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	}
 	p.qosMetrics.updateSendBroadcast(t, true)
 	return
+}
+
+func isConsensusTopicMsgType(msgType iotexrpc.MessageType) bool {
+	return msgType == iotexrpc.MessageType_CONSENSUS
 }
 
 func (p *agent) messageTopic(msgType iotexrpc.MessageType) string {
@@ -604,7 +644,7 @@ func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 		if err != nil {
 			status = _failureStr
 		}
-		_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.String(), status).Inc()
+		_p2pMsgCounter.WithLabelValues("unicast", msgTypeLabel(msgType), "out", status).Inc()
 	}()
 
 	msgType, msgBody, err = convertAppMsg(msg)

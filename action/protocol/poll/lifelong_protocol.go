@@ -59,7 +59,10 @@ func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
 	log.L().Info("Creating genesis states for lifelong delegates protocol")
-	return setCandidates(ctx, sm, nil, p.delegates, uint64(1))
+	// Genesis states carry no receipt, so freeze logs (which cannot occur at
+	// height 1 anyway) are discarded.
+	_, err = setCandidates(ctx, sm, nil, p.delegates, uint64(1))
+	return err
 }
 
 func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, elp action.Envelope, sm protocol.StateManager) (*action.Receipt, error) {

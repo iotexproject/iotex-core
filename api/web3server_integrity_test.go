@@ -560,7 +560,8 @@ func newfilter(t *testing.T, handler *hTTPHandler) {
 	result := serveTestHTTP(require, handler, "eth_newFilter", `[{"fromBlock":"0x1"}]`)
 	actual, ok := result.(string)
 	require.True(ok)
-	require.Equal("0xe10f7dd489b75a36de8e246eb974827fe86a02ed19d9b475a1600cf4f935feff", actual)
+	require.Len(actual, 66)
+	require.NotEqual(actual, serveTestHTTP(require, handler, "eth_newFilter", `[{"fromBlock":"0x1"}]`))
 }
 
 func newBlockFilter(t *testing.T, handler *hTTPHandler) {
@@ -568,7 +569,8 @@ func newBlockFilter(t *testing.T, handler *hTTPHandler) {
 	result := serveTestHTTP(require, handler, "eth_newBlockFilter", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
-	require.Equal("0x71371f8dbaefc4c96d2534163a1b461951c88520cd32bc03b5bfdfe7340bc187", actual)
+	require.Len(actual, 66)
+	require.NotEqual(actual, serveTestHTTP(require, handler, "eth_newBlockFilter", "[]"))
 }
 
 func getFilterChanges(t *testing.T, handler *hTTPHandler) {
@@ -703,6 +705,7 @@ func web3Staking(t *testing.T, handler *hTTPHandler) {
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
 		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
 		blsPubKey,
+		nil,
 	)
 	require.NoError(err)
 	data9, err := act9.EthData()
@@ -860,6 +863,11 @@ func feeHistory(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, da
 		expected int
 	}{
 		{`[4, "latest", [25,75]]`, 1},
+		// blockCount as a bare decimal string, historically accepted here, and as a
+		// hex quantity string per the eth_feeHistory spec (what standard callers such
+		// as MetaMask send); both must resolve to the same 4 blocks.
+		{`["4", "latest", [25,75]]`, 1},
+		{`["0x4", "latest", [25,75]]`, 1},
 	} {
 		oldnest := max(bc.TipHeight()-4+1, 1)
 		result := serveTestHTTP(require, handler, "eth_feeHistory", test.params)

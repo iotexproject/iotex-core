@@ -75,6 +75,8 @@ func (p *Protocol) handleCandidateTransferOwnership(ctx context.Context, act *ac
 		if clear {
 			candidate.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex
 			candidate.SelfStake = big.NewInt(0)
+			// The self-stake bucket loses its self-stake bonus and becomes a
+			// regular vote bucket. subVotes is (with-bonus - without-bonus).
 			candidate.Votes.Sub(candidate.Votes, subVotes)
 		}
 	}

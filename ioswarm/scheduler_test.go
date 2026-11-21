@@ -16,9 +16,12 @@ func TestSchedulerDispatchLeastLoaded(t *testing.T) {
 	r.Register(&pb.RegisterRequest{AgentID: "a1", Capability: pb.TaskLevel_L2_STATE_VERIFY})
 	r.Register(&pb.RegisterRequest{AgentID: "a2", Capability: pb.TaskLevel_L2_STATE_VERIFY})
 
-	// Pre-load a1 with some pending tasks to make it "busier"
+	// Pre-load a1 with a queued batch to make it "busier"; its self-reported
+	// TasksPending does not count
 	a1, _ := r.GetAgent("a1")
-	a1.TasksPending = 10
+	a1.TaskChan <- &pb.TaskBatch{}
+	a2, _ := r.GetAgent("a2")
+	a2.TasksPending = 10
 
 	// Create 2 tasks (1 batch)
 	tasks := []*pb.TaskPackage{
@@ -32,12 +35,11 @@ func TestSchedulerDispatchLeastLoaded(t *testing.T) {
 	}
 
 	// a2 should get the batch because it has lower load
-	a2, _ := r.GetAgent("a2")
 	if len(a2.TaskChan) != 1 {
 		t.Fatalf("expected a2 to receive batch (load=0), got %d batches", len(a2.TaskChan))
 	}
-	if len(a1.TaskChan) != 0 {
-		t.Fatalf("expected a1 to have 0 batches (higher load), got %d", len(a1.TaskChan))
+	if len(a1.TaskChan) != 1 {
+		t.Fatalf("expected a1 to keep only its queued batch (higher load), got %d", len(a1.TaskChan))
 	}
 }
 

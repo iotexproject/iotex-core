@@ -1,0 +1,283 @@
+// Copyright (c) 2026 IoTeX Foundation
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
+
+package rewarding
+
+import (
+	"bytes"
+	"math/big"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/v2/state"
+	"github.com/iotexproject/iotex-core/v2/test/identityset"
+)
+
+// TestPendingBlockRewardPool_ReadMissingIsZero — reads against an
+// unpopulated pool key return zero without an error so callers can treat
+// "no pool entry" and "zero pool entry" identically.
+func TestPendingBlockRewardPool_ReadMissingIsZero(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, identityset.Address(1).Bytes())
+	r.NoError(err)
+	r.NotNil(amt)
+	r.Equal(0, amt.Sign(), "missing pool entry must read as zero, got %s", amt.String())
+}
+
+// TestPendingBlockRewardPool_CreditZeroIsNoop — a nil or zero amount must
+// not create an entry. Callers pass legacy zero rewards through the same
+// helper and rely on this short-circuit.
+func TestPendingBlockRewardPool_CreditZeroIsNoop(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(3).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, nil))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(0)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(0, amt.Sign())
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Empty(ids)
+}
+
+// TestPendingBlockRewardPool_CreditAccumulates — multiple credits to the
+// same delegate accumulate arithmetically; enumeration returns one entry.
+func TestPendingBlockRewardPool_CreditAccumulates(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(4).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(250)))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(1)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(int64(351), amt.Int64())
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Len(ids, 1)
+	r.Equal(candID, ids[0])
+}
+
+// TestPendingBlockRewardPool_EnumerationSortedAndIsolated verifies that the
+// V2 range scan is canonical and excludes unrelated rewarding state.
+func TestPendingBlockRewardPool_EnumerationSortedAndIsolated(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	// Choose four addresses whose byte representations don't happen to
+	// already be inserted in sorted order.
+	inputs := [][]byte{
+		identityset.Address(9).Bytes(),
+		identityset.Address(2).Bytes(),
+		identityset.Address(7).Bytes(),
+		identityset.Address(4).Bytes(),
+	}
+	for _, id := range inputs {
+		r.NoError(p.creditPendingBlockRewardPool(ctx, sm, id, big.NewInt(10)))
+	}
+	// A neighboring rewarding key must not be included by the pbrp/ range.
+	r.NoError(p.putState(ctx, sm, []byte("pbrq/unrelated"), &pendingBlockRewardPool{amount: big.NewInt(1)}))
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Len(ids, 4)
+	for i := 1; i < len(ids); i++ {
+		r.Less(bytes.Compare(ids[i-1], ids[i]), 0,
+			"enumeration not sorted at position %d: %x vs %x", i, ids[i-1], ids[i])
+	}
+}
+
+func TestPendingBlockRewardPool_EnumerationRejectsMalformedKey(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	malformedKey := append(append([]byte(nil), _pendingBlockRewardPoolKeyPrefix...), 0x01)
+	r.NoError(p.putState(ctx, sm, malformedKey, &pendingBlockRewardPool{amount: big.NewInt(1)}))
+
+	_, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.ErrorContains(err, "malformed pending block reward pool key")
+}
+
+// TestPendingBlockRewardPool_Delete — draining removes the entry; subsequent
+// reads see zero and enumeration is empty.
+func TestPendingBlockRewardPool_Delete(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(5).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(500)))
+
+	r.NoError(p.deletePendingBlockRewardPool(ctx, sm, candID))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(0, amt.Sign())
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Empty(ids)
+}
+
+// TestPendingBlockRewardPool_DeleteIdempotent — after a real credit-then-
+// delete cycle, a second delete against the same ID is a no-op. This
+// mirrors what happens if the epoch drain gets replayed against an
+// already-cleared pool.
+func TestPendingBlockRewardPool_DeleteIdempotent(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(7).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(7)))
+	r.NoError(p.deletePendingBlockRewardPool(ctx, sm, candID))
+	r.NoError(p.deletePendingBlockRewardPool(ctx, sm, candID))
+}
+
+// TestPendingBlockRewardPool_EnumerationIsolatesEntries — after adding two
+// delegates and deleting one, only the survivor is enumerated and its balance
+// stays intact.
+func TestPendingBlockRewardPool_EnumerationIsolatesEntries(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	alice := identityset.Address(11).Bytes()
+	bob := identityset.Address(12).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, alice, big.NewInt(100)))
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, bob, big.NewInt(200)))
+
+	r.NoError(p.deletePendingBlockRewardPool(ctx, sm, alice))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, bob)
+	r.NoError(err)
+	r.Equal(int64(200), amt.Int64())
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Len(ids, 1)
+	r.Equal(bob, ids[0])
+}
+
+// TestCandidateIdentifierBytes — the address-parse helper mirrors the
+// identifier convention used by staking.CandidateRewardSnapshotFor.
+func TestCandidateIdentifierBytes(t *testing.T) {
+	r := require.New(t)
+
+	addr := identityset.Address(15)
+	got, err := candidateIdentifierBytes(addr.String())
+	r.NoError(err)
+	r.Equal(addr.Bytes(), got)
+
+	_, err = candidateIdentifierBytes("")
+	r.Error(err)
+
+	_, err = candidateIdentifierBytes("not-a-valid-address")
+	r.Error(err)
+}
+
+func TestCandidateIdentifier(t *testing.T) {
+	identity := identityset.Address(1).String()
+	operator := identityset.Address(2).String()
+	require.Equal(t, identity, candidateIdentifier(&state.Candidate{Identity: identity, Address: operator}))
+	require.Equal(t, operator, candidateIdentifier(&state.Candidate{Address: operator}))
+	require.Empty(t, candidateIdentifier(nil))
+}
+
+// TestPendingBlockRewardPool_DecrementPartial — subtracting less than the
+// current balance leaves the entry with a positive residual, so a future
+// enumeration can still find it.
+func TestPendingBlockRewardPool_DecrementPartial(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(6).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(500)))
+
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(200)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(int64(300), amt.Int64(), "residual balance must equal credit minus decrement")
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Len(ids, 1)
+	r.Equal(candID, ids[0], "pool entry must survive a partial decrement")
+}
+
+// TestPendingBlockRewardPool_DecrementExactDeletes — decrementing by the
+// exact remaining balance zeroes the entry, which the helper must treat as
+// full drain and delete the entry.
+func TestPendingBlockRewardPool_DecrementExactDeletes(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(8).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(500)))
+
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(500)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(0, amt.Sign())
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Empty(ids, "entry must disappear from enumeration when exact-drained")
+}
+
+// TestPendingBlockRewardPool_DecrementClampsToBalance — a decrement larger
+// than the current balance clamps to the balance (no negative amount ever
+// persists) and treats the outcome as a full drain: the entry is gone. This
+// is the guard against arithmetic slippage between the frozen
+// cursor amount and the pool's live balance.
+func TestPendingBlockRewardPool_DecrementClampsToBalance(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(10).Bytes()
+	r.NoError(p.creditPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
+
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(9_999)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(0, amt.Sign(), "over-decrement must clamp to zero, never persist negative")
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Empty(ids)
+}
+
+// TestPendingBlockRewardPool_DecrementMissingIsNoop — decrementing against
+// an unpopulated key returns cleanly. Nil / non-positive amounts short-
+// circuit before touching state. This mirrors what happens when a chunk
+// runs against a delegate whose block-side pool was never credited.
+func TestPendingBlockRewardPool_DecrementMissingIsNoop(t *testing.T) {
+	r := require.New(t)
+	ctx, sm, p, _, _ := newVoterRewardCtx(t, true)
+
+	candID := identityset.Address(13).Bytes()
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(100)))
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, nil))
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(0)))
+	r.NoError(p.decrementPendingBlockRewardPool(ctx, sm, candID, big.NewInt(-5)))
+
+	amt, err := p.readPendingBlockRewardPool(ctx, sm, candID)
+	r.NoError(err)
+	r.Equal(0, amt.Sign())
+
+	ids, err := p.listPendingBlockRewardPoolIDs(ctx, sm)
+	r.NoError(err)
+	r.Empty(ids)
+}

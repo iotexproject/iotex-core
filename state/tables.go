@@ -83,6 +83,12 @@ var (
 	BlockRewardHistoryKeyPrefix = []byte("brh")
 	// EpochRewardHistoryKeyPrefix is the key prefix for epoch reward history
 	EpochRewardHistoryKeyPrefix = []byte("erh")
+	// VoterRewardDistributionPlanKey stores the immutable voter reward
+	// allocation inputs for the active or most recently completed IIP-59 era.
+	VoterRewardDistributionPlanKey = []byte("edp")
+	// VoterRewardDistributionProgressKey stores the frequently updated voter
+	// scan and payout progress. Both keys are created and deleted together.
+	VoterRewardDistributionProgressKey = []byte("edc")
 )
 
 const PollCandidatesPrefix = "Candidates."

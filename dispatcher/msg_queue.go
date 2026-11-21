@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -55,10 +56,18 @@ func (q *queueLimit) increment(peer string) bool {
 func (q *queueLimit) decrement(peer string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.counts[peer] <= 0 {
+	n := q.counts[peer]
+	if n <= 0 {
+		delete(q.counts, peer)
 		return
 	}
-	q.counts[peer]--
+	if n--; n == 0 {
+		// drop the key rather than keep a zero: otherwise the map retains an
+		// entry for every peer that ever sent a block request.
+		delete(q.counts, peer)
+		return
+	}
+	q.counts[peer] = n
 }
 
 func newMsgQueueMgr(cfg msgQueueConfig, handler func(msg *message)) *msgQueueMgr {
@@ -114,7 +123,7 @@ func (m *msgQueueMgr) consume(q string) {
 			if q == blockSyncQ {
 				m.blockRequestPeers.decrement(msg.peer)
 			}
-			m.handleMsg(msg)
+			m.handleMsgOnQueue(q, msg)
 		case <-m.quit:
 			log.L().Debug("message handler is terminated.")
 			return
@@ -122,8 +131,66 @@ func (m *msgQueueMgr) consume(q string) {
 	}
 }
 
+// recoverableQ lists the queues whose handlers do not mutate committed chain
+// state. A panic there is confined to the message that caused it, so the worker
+// can log it and move on instead of taking the process down.
+//
+// blockQ is deliberately absent: ChainService.HandleBlock runs
+// blocksync.ProcessBlock, which calls commitBlocks inline on the worker while
+// holding bs.mu. A panic raised there may be a deliberate unrecoverable-state
+// signal (see FeatureCtx.PanicUnrecoverableError) and unwinding it would
+// release bs.mu over half-applied state, so blockQ keeps today's fail-stop
+// behaviour.
+//
+// blockSyncQ is recoverable: it serves a peer's BLOCK_REQUEST via
+// ChainService.HandleSyncRequest -> blocksync.ProcessSyncRequest, which is
+// read-only -- it reads stored blocks and unicasts them to the peer, never
+// taking bs.mu and never committing. A panic there leaves no half-applied
+// state behind, so recovering drops only that request.
+var recoverableQ = map[string]bool{
+	actionQ:    true,
+	blockSyncQ: true,
+	consensusQ: true,
+	miscQ:      true,
+}
+
+// handleMsgOnQueue runs the message handler, with a panic boundary on the
+// queues where recovering is safe. A malformed inbound message then costs the
+// message, not the node.
+func (m *msgQueueMgr) handleMsgOnQueue(q string, msg *message) {
+	if recoverableQ[q] {
+		defer func() {
+			if r := recover(); r != nil {
+				msgPanicMtc.WithLabelValues(q, msg.msgType.String()).Inc()
+				log.L().Error("recovered from a panic while handling an inbound message",
+					zap.String("queue", q),
+					zap.String("msgType", msg.msgType.String()),
+					zap.String("peer", msg.peer),
+					zap.Any("panic", r),
+					zap.ByteString("stack", debug.Stack()),
+				)
+			}
+		}()
+	}
+	m.handleMsg(msg)
+}
+
 func (m *msgQueueMgr) Queue(msg *message, subscriber Subscriber) bool {
-	var queue msgQueue
+	var (
+		queue    msgQueue
+		reserved bool
+		queued   bool
+	)
+	// A block-request slot is reserved below and released only by a successful
+	// dequeue in consume(). Every path out of this function that does not
+	// enqueue must therefore release it here -- otherwise a peer whose requests
+	// are dropped (a full queue, a subscriber filter) leaks a slot per drop and
+	// is locked out of block sync for good after blockSyncLimit drops.
+	defer func() {
+		if reserved && !queued {
+			m.blockRequestPeers.decrement(msg.peer)
+		}
+	}()
 	switch msg.msgType {
 	case iotexrpc.MessageType_ACTION, iotexrpc.MessageType_ACTIONS, iotexrpc.MessageType_ACTION_HASH, iotexrpc.MessageType_ACTION_REQUEST:
 		queue = m.queues[actionQ]
@@ -134,6 +201,7 @@ func (m *msgQueueMgr) Queue(msg *message, subscriber Subscriber) bool {
 			log.L().Warn("Peer has reached the block sync request limit.", zap.String("peer", msg.peer), zap.Int("limit", m.blockRequestPeers.limit))
 			return false
 		}
+		reserved = true
 		queue = m.queues[blockSyncQ]
 	case iotexrpc.MessageType_CONSENSUS:
 		queue = m.queues[consensusQ]
@@ -146,6 +214,7 @@ func (m *msgQueueMgr) Queue(msg *message, subscriber Subscriber) bool {
 	}
 	select {
 	case queue <- msg:
+		queued = true
 	default:
 		log.L().Warn("Queue is full.", zap.Any("msgType", msg.msgType))
 		return false

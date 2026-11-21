@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+// NOTE: this Solidity interface is the human-readable source-of-truth for
+// the staking ABI surface. Its companion file native_staking_contract_abi.json
+// is the runtime ABI that iotex-core loads via NativeStakingContractABI().
+// The two are NOT auto-generated from each other; any new method, parameter,
+// or event added here must be added by hand to the JSON as well (and the
+// reverse). Out-of-sync edits silently break the web3 path — clients see one
+// signature while the node decodes another.
+
 interface INativeStakingContract {
     // Events
     event CandidateRegistered(
@@ -64,6 +72,27 @@ interface INativeStakingContract {
         uint8[] memory data
     ) external payable;
 
+    // candidateRegisterWithBLSAndPoP adds the BLS proof-of-possession
+    // (blsPop) required post-fork by the BLS Producer Identity follow-up
+    // to IIP-52. The PoP is a 96-byte BLS signature over a domain-tagged
+    // hash that binds the registrant to their blsPubKey + candidate
+    // identity; without it the handler rejects the registration because
+    // IIP-52's FastAggregateVerify path is vulnerable to a rogue-key
+    // aggregate-forgery attack against un-attested keys. The legacy
+    // candidateRegisterWithBLS entry above is kept so existing tooling
+    // doesn't break, but its calldata is rejected post-fork.
+    function candidateRegisterWithBLSAndPoP(
+        string memory name,
+        address operatorAddress,
+        address rewardAddress,
+        address ownerAddress,
+        uint32 duration,
+        bool autoStake,
+        bytes memory blsPubKey,
+        bytes memory blsPop,
+        uint8[] memory data
+    ) external payable;
+
     function candidateActivate(uint64 bucketIndex) external;
 
     // Candidate Deactivate methods
@@ -100,6 +129,18 @@ interface INativeStakingContract {
         address operatorAddress,
         address rewardAddress,
         bytes memory blsPubKey
+    ) external;
+
+    // candidateUpdateWithBLSAndPoP — the V2 counterpart that carries the
+    // BLS proof-of-possession needed post-fork when rotating the BLS
+    // pubkey (see candidateRegisterWithBLSAndPoP above for the
+    // motivation).
+    function candidateUpdateWithBLSAndPoP(
+        string memory name,
+        address operatorAddress,
+        address rewardAddress,
+        bytes memory blsPubKey,
+        bytes memory blsPop
     ) external;
 
     // Stake Management

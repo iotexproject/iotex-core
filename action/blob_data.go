@@ -131,6 +131,13 @@ func FromProtoBlobTxSideCar(pb *iotextypes.BlobTxSidecar) (*types.BlobTxSidecar,
 	if pb == nil || len(pb.Blobs) == 0 {
 		return nil, ErrNilProto
 	}
+	// Bound the element counts before allocating: a kzg4844.Blob is 128 KiB, so
+	// a large attacker-supplied count would otherwise pre-allocate an enormous
+	// backing array before the per-element length check below can reject it.
+	if permitted := MaxBlobGasPerBlock / params.BlobTxBlobGasPerBlob; len(pb.Blobs) > permitted ||
+		len(pb.Commitments) > permitted || len(pb.Proofs) > permitted {
+		return nil, errors.Errorf("too many blobs in sidecar: permitted %d", permitted)
+	}
 	sidecar := types.BlobTxSidecar{
 		Blobs:       make([]kzg4844.Blob, len(pb.Blobs)),
 		Commitments: make([]kzg4844.Commitment, len(pb.Commitments)),

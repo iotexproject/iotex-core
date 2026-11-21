@@ -263,11 +263,16 @@ func (osr *ObjectStorageRegistry) matchContractIndex(ns string, obj any) (int, b
 	if exist {
 		return index, true
 	}
-	// namespace prefix specific storage
+	// namespace prefix specific storage, the longest matching prefix wins so
+	// the result does not depend on the map iteration order
+	var (
+		matched int
+		longest = -1
+	)
 	for prefix, index := range osr.nsPrefix {
-		if strings.HasPrefix(ns, prefix) {
-			return index, true
+		if len(prefix) > longest && strings.HasPrefix(ns, prefix) {
+			matched, longest = index, len(prefix)
 		}
 	}
-	return 0, false
+	return matched, longest >= 0
 }

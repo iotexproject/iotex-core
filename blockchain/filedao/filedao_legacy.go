@@ -384,6 +384,7 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 	return fd.kvStore.WriteBatch(b)
 }
 
+// Deprecated: DeleteTipBlock is only used in tests
 func (fd *fileDAOLegacy) DeleteTipBlock() error {
 	// First obtain tip height from db
 	height, err := fd.Height()

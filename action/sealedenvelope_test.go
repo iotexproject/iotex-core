@@ -143,29 +143,77 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		req.Contains(se2.loadProto(se.Proto(), _evmNetworkID).Error(), v.err)
 	}
 
-	for _, v := range []struct {
-		enc  iotextypes.Encoding
-		hash string
-	}{
-		{0, "0562e100b057804ee3cb4fa906a897852aa8075013a02ef1e229360f1e5ee339"},
-		{1, "d5dc789026c12cc69f1ea7997fbe0aa1bcc02e85176848c7b2ecf4da6b4560d0"},
+	// IOTEX_PROTOBUF encoding does not bind the sender to the signature at
+	// deserialization, so a fixed pubkey/signature pair still round-trips.
+	se, err = createSealedEnvelope(0)
+	req.NoError(err)
+	se.signature = _validSig
+	se.encoding = iotextypes.Encoding_IOTEX_PROTOBUF
+	req.NoError(se2.loadProto(se.Proto(), _evmNetworkID))
+	h, _ := se.Hash()
+	req.Equal("0562e100b057804ee3cb4fa906a897852aa8075013a02ef1e229360f1e5ee339", hex.EncodeToString(h[:]))
+	se.SenderAddress()
+	_, _ = se2.Hash()
+	se2.SenderAddress()
+	req.Equal(se, se2)
+	tsf2, ok := se2.Envelope.Action().(*Transfer)
+	req.True(ok)
+	req.Equal(tsf, tsf2)
+
+	// ETHEREUM_EIP155 encoding binds the sender to the signature: SenderPubKey
+	// must be recoverable from the signature, so sign with a real key.
+	sk := identityset.PrivateKey(0)
+	se, err = createSealedEnvelope(0)
+	req.NoError(err)
+	se.srcPubkey = sk.PublicKey()
+	se.encoding = iotextypes.Encoding_ETHEREUM_EIP155
+	se.evmNetworkID = _evmNetworkID
+	ethTx, err := se.Envelope.ToEthTx()
+	req.NoError(err)
+	ethSigner, err := NewEthSigner(iotextypes.Encoding_ETHEREUM_EIP155, _evmNetworkID)
+	req.NoError(err)
+	ethSig, err := sk.Sign(ethSigner.Hash(ethTx).Bytes())
+	req.NoError(err)
+	se.signature = ethSig
+	req.NoError(se2.loadProto(se.Proto(), _evmNetworkID))
+	h, _ = se.Hash()
+	h2, _ := se2.Hash()
+	req.Equal(h, h2)
+	se.SenderAddress()
+	se2.SenderAddress()
+	req.Equal(se, se2)
+	tsf2, ok = se2.Envelope.Action().(*Transfer)
+	req.True(ok)
+	req.Equal(tsf, tsf2)
+}
+
+func TestSealedEnvelope_EthereumSenderConsistency(t *testing.T) {
+	for _, encoding := range []iotextypes.Encoding{
+		iotextypes.Encoding_ETHEREUM_EIP155,
+		iotextypes.Encoding_ETHEREUM_UNPROTECTED,
 	} {
-		se, err = createSealedEnvelope(0)
-		se.signature = _validSig
-		se.encoding = v.enc
-		req.NoError(se2.loadProto(se.Proto(), _evmNetworkID))
-		if v.enc > 0 {
+		t.Run(encoding.String(), func(t *testing.T) {
+			req := require.New(t)
+			sk := identityset.PrivateKey(0)
+			se, err := createSealedEnvelope(0)
+			req.NoError(err)
+			se.srcPubkey = sk.PublicKey()
+			se.encoding = encoding
 			se.evmNetworkID = _evmNetworkID
-		}
-		h, _ := se.Hash()
-		req.Equal(v.hash, hex.EncodeToString(h[:]))
-		se.SenderAddress()
-		_, _ = se2.Hash()
-		se2.SenderAddress()
-		req.Equal(se, se2)
-		tsf2, ok := se2.Envelope.Action().(*Transfer)
-		req.True(ok)
-		req.Equal(tsf, tsf2)
+
+			ethTx, err := se.Envelope.ToEthTx()
+			req.NoError(err)
+			signer, err := NewEthSigner(encoding, _evmNetworkID)
+			req.NoError(err)
+			se.signature, err = sk.Sign(signer.Hash(ethTx).Bytes())
+			req.NoError(err)
+
+			req.NoError((&SealedEnvelope{}).loadProto(se.Proto(), _evmNetworkID))
+
+			mismatched := se.Proto()
+			mismatched.SenderPubKey = identityset.PrivateKey(1).PublicKey().Bytes()
+			req.ErrorIs((&SealedEnvelope{}).loadProto(mismatched, _evmNetworkID), ErrInvalidSender)
+		})
 	}
 }
 

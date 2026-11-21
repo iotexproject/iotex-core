@@ -6,8 +6,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/eracow"
+	"github.com/iotexproject/iotex-core/v2/pkg/log"
 	"github.com/iotexproject/iotex-core/v2/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/v2/state"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -27,7 +30,31 @@ func NewStateReader(sr protocol.StateReader, opts ...protocol.StateOption) *Cont
 }
 
 func contractNamespaceOption(contractAddr address.Address) protocol.StateOption {
-	return protocol.NamespaceOption(fmt.Sprintf("%s%x", state.ContractStakingBucketNamespacePrefix, contractAddr.Bytes()))
+	return protocol.NamespaceOption(bucketNamespace(contractAddr))
+}
+
+// bucketNamespace is the state namespace holding one staking contract's
+// buckets.
+//
+// Unexported on purpose: no code outside this package may address a
+// contract-staking bucket, because doing so would drop the reader's global
+// options. Use BucketStateOpts instead.
+func bucketNamespace(contractAddr address.Address) string {
+	return fmt.Sprintf("%s%x", state.ContractStakingBucketNamespacePrefix, contractAddr.Bytes())
+}
+
+// BucketStateOpts addresses one contract-staking bucket.
+//
+// This is the single expression for that address in the repository. Every live
+// read and write of a bucket goes through it, and so does the IIP-59 era
+// copy-on-write resolver's live-value fallback (staking.FrozenContractBucket),
+// which would otherwise re-derive the same address by hand and drift from this
+// one — silently, since a frozen read that misses is skipped, not failed.
+func (r *ContractStakingStateReader) BucketStateOpts(contractAddr address.Address, bucketID uint64) []protocol.StateOption {
+	return r.makeOpts(
+		contractNamespaceOption(contractAddr),
+		bucketIDKeyOption(bucketID),
+	)
 }
 
 func bucketTypeNamespaceOption(contractAddr address.Address) protocol.StateOption {
@@ -38,6 +65,9 @@ func contractKeyOption(contractAddr address.Address) protocol.StateOption {
 	return protocol.KeyOption(contractAddr.Bytes())
 }
 
+// bucketIDKeyOption is the state key of one contract-staking bucket inside
+// bucketNamespace. Little-endian; the encoding is fixed by existing state and
+// must not be "corrected".
 func bucketIDKeyOption(bucketID uint64) protocol.StateOption {
 	return protocol.KeyOption(byteutil.Uint64ToBytes(bucketID))
 }
@@ -91,10 +121,7 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 	var ssb Bucket
 	if _, err := r.sr.State(
 		&ssb,
-		r.makeOpts(
-			contractNamespaceOption(contractAddr),
-			bucketIDKeyOption(bucketID),
-		)...,
+		r.BucketStateOpts(contractAddr, bucketID)...,
 	); err != nil {
 		switch errors.Cause(err) {
 		case state.ErrStateNotExist:
@@ -104,6 +131,43 @@ func (r *ContractStakingStateReader) Bucket(contractAddr address.Address, bucket
 	}
 
 	return &ssb, nil
+}
+
+// FrozenBucket reads a contract-staking bucket as of the era freeze height.
+func (r *ContractStakingStateReader) FrozenBucket(
+	window eracow.Window,
+	contractAddr address.Address,
+	bucketID uint64,
+) (*Bucket, error) {
+	if !window.Open() {
+		return nil, errors.New("contractstaking: no era window open")
+	}
+	if !window.ContractBucketExisted(contractAddr.Bytes(), bucketID) {
+		if !window.ContractKnown(contractAddr.Bytes()) {
+			log.L().Error("IIP-59: contract-staking contract has no frozen bucket high-water mark; "+
+				"all of its buckets are excluded from this era's voter weights",
+				zap.String("contract", contractAddr.String()),
+				zap.Uint64("bucketID", bucketID),
+				zap.Uint64("freezeHeight", window.FreezeHeight),
+			)
+		}
+		return nil, errors.Wrapf(eracow.ErrBucketPostFreeze, "contract bucket %d of %s", bucketID, contractAddr.String())
+	}
+	bucket := &Bucket{}
+	err := eracow.Resolve(
+		r.sr, window.FreezeHeight,
+		eracow.KindLSDBucket, eracow.LSDBucketSubkey(contractAddr.Bytes(), bucketID),
+		bucket,
+		r.BucketStateOpts(contractAddr, bucketID)...,
+	)
+	switch {
+	case err == nil:
+		return bucket, nil
+	case errors.Is(err, eracow.ErrNotFrozen):
+		return nil, errors.Wrapf(eracow.ErrBucketPostFreeze, "contract bucket %d of %s", bucketID, contractAddr.String())
+	default:
+		return nil, err
+	}
 }
 
 // BucketTypes returns all BucketType for a given contract and bucket id.

@@ -18,6 +18,11 @@ import (
 var (
 	_ TxCommonInternal = (*BlobTx)(nil)
 	_ validateSidecar  = (*BlobTx)(nil)
+
+	// ErrBlobTxCreate is returned when a blob tx omits the destination address
+	ErrBlobTxCreate = errors.New("blob transaction cannot be used to create contract")
+	// ErrMissingBlobData is returned when a blob tx carries no blob data
+	ErrMissingBlobData = errors.New("blob transaction is missing blob data")
 )
 
 // BlobTx represents EIP-4844 blob transaction
@@ -192,6 +197,8 @@ func (tx *BlobTx) fromProto(pb *iotextypes.ActionCore) error {
 		if blobData, err = fromProtoBlobTxData(blobPb); err != nil {
 			return err
 		}
+	} else {
+		return ErrMissingBlobData
 	}
 	tx.nonce = pb.GetNonce()
 	tx.gasLimit = pb.GetGasLimit()
@@ -215,18 +222,32 @@ func (tx *BlobTx) setChainID(n uint32) {
 	tx.chainID = n
 }
 
-func (tx *BlobTx) toEthTx(to *common.Address, value *big.Int, data []byte) *types.Transaction {
+func (tx *BlobTx) toEthTx(to *common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
+	if to == nil {
+		return nil, ErrBlobTxCreate
+	}
+	if tx.blob == nil {
+		return nil, ErrMissingBlobData
+	}
+	val, err := uint256FromBig(value)
+	if err != nil {
+		return nil, err
+	}
+	blobFeeCap, err := uint256FromBig(tx.BlobGasFeeCap())
+	if err != nil {
+		return nil, err
+	}
 	return types.NewTx(&types.BlobTx{
 		Nonce:      tx.nonce,
 		GasTipCap:  tx.tipCap(),
 		GasFeeCap:  tx.feeCap(),
 		Gas:        tx.gasLimit,
 		To:         *to,
-		Value:      uint256.MustFromBig(value),
+		Value:      val,
 		Data:       data,
 		AccessList: tx.accessList,
-		BlobFeeCap: uint256.MustFromBig(tx.BlobGasFeeCap()),
+		BlobFeeCap: blobFeeCap,
 		BlobHashes: tx.BlobHashes(),
 		Sidecar:    tx.BlobTxSidecar(),
-	})
+	}), nil
 }

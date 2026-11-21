@@ -185,6 +185,11 @@ func (vr *VoteReviser) shouldCorrectCandSelfStake(height uint64) bool {
 	return vr.cfg.CorrectCandSelfStakeHeight == height
 }
 
+// calculateVoteWeight rebuilds each candidate's vote total from scratch rather
+// than applying an incremental stake delta. Every configured revise height is
+// in the past, before IIP-59 activation; a new revise at or after activation
+// would need separate analysis because Candidate.Votes is the denominator
+// frozen for voter reward distribution.
 func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, cands CandidateList) (CandidateList, error) {
 	csr := newCandidateStateReader(csm.SM())
 	candm := make(map[string]*Candidate)

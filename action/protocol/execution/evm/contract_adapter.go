@@ -15,8 +15,8 @@ type contractAdapter struct {
 	erigon Contract
 }
 
-func newContractAdapter(addr hash.Hash160, account *state.Account, sm protocol.StateManager, intra *erigonstate.IntraBlockState, enableAsync bool) (Contract, error) {
-	v1, err := newContract(addr, account, sm, enableAsync)
+func newContractAdapter(addr hash.Hash160, account *state.Account, sm protocol.StateManager, intra *erigonstate.IntraBlockState, enableAsync, trackAbsent bool) (Contract, error) {
+	v1, err := newContract(addr, account, sm, enableAsync, trackAbsent)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create contract")
 	}

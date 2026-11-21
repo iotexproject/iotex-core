@@ -69,6 +69,16 @@ const (
 
 	// InitState refers the initial state of the consensus fsm
 	InitState = sPrepare
+
+	// prepareBackoffBase is the retry delay after the second consecutive
+	// failed prepare attempt. It doubles with each further failure, so a
+	// persistently failing prepare cannot become a zero-delay hot loop while
+	// a genuine recovery (e.g., the wall clock catching up with a future
+	// block timestamp) still happens promptly.
+	prepareBackoffBase = 100 * time.Millisecond
+	// prepareBackoffCap bounds the retry delay, so once the failure cause is
+	// gone the round resumes within a fraction of a block interval
+	prepareBackoffCap = 5 * time.Second
 )
 
 var (
@@ -101,6 +111,10 @@ type ConsensusFSM struct {
 	clock clock.Clock
 	ctx   Context
 	wg    sync.WaitGroup
+	// prepareFailStreak counts consecutive failed prepare attempts to drive
+	// the exponential backoff. Only touched by the single event-consuming
+	// goroutine, no lock needed.
+	prepareFailStreak int
 }
 
 // NewConsensusFSM returns a new fsm
@@ -415,11 +429,31 @@ func (m *ConsensusFSM) calibrate(evt fsm.Event) (fsm.State, error) {
 	return m.BackToPrepare(0)
 }
 
+// prepareBackoffDelay returns the retry delay after n consecutive failed
+// prepare attempts. The first failure retries immediately, so a transient
+// hiccup costs nothing; from the second failure on, the delay doubles per
+// failure up to prepareBackoffCap.
+func prepareBackoffDelay(n int) time.Duration {
+	if n <= 1 {
+		return 0
+	}
+	delay := prepareBackoffBase
+	for i := 2; i < n && delay < prepareBackoffCap; i++ {
+		delay *= 2
+	}
+	if delay > prepareBackoffCap {
+		return prepareBackoffCap
+	}
+	return delay
+}
+
 func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 	if err := m.ctx.Prepare(); err != nil {
 		m.ctx.Logger().Error("Error during prepare", zap.Error(err))
-		return m.BackToPrepare(0)
+		m.prepareFailStreak++
+		return m.BackToPrepare(prepareBackoffDelay(m.prepareFailStreak))
 	}
+	m.prepareFailStreak = 0
 	m.ctx.Logger().Debug("Start a new round")
 	proposal, err := m.ctx.Proposal()
 	if err != nil {

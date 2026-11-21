@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
@@ -85,6 +86,19 @@ func TestBundle_Hash(t *testing.T) {
 		b2.SetTargetBlockHeight(20)
 		require.NotEqual(t, b1.Hash(), b2.Hash())
 	})
+	t.Run("differing early action produces different hash", func(t *testing.T) {
+		// Two bundles that share the same final action and target height but
+		// differ in an earlier action must not collide on the pool's dedup
+		// key. A right-truncating "hash" keyed only off the trailing bytes
+		// (final action + height) would return the same value here.
+		last := signedTransfer(t, 9)
+		b1, b2 := NewBundle(), NewBundle()
+		require.NoError(t, b1.Add(signedTransfer(t, 0), last))
+		require.NoError(t, b2.Add(signedTransfer(t, 1), last))
+		b1.SetTargetBlockHeight(10)
+		b2.SetTargetBlockHeight(10)
+		require.NotEqual(t, b1.Hash(), b2.Hash())
+	})
 }
 
 func TestBundle_Gas(t *testing.T) {
@@ -122,4 +136,29 @@ func TestBundle_ProtoRoundTrip(t *testing.T) {
 	require.Equal(t, orig.TargetBlockHeight(), restored.TargetBlockHeight())
 	require.Equal(t, orig.Gas(), restored.Gas())
 	require.Equal(t, orig.Hash(), restored.Hash())
+}
+
+// Regression guard: system actions must never be admissible into a bundle,
+// through either construction path. Legitimate system actions are generated
+// exclusively by the block producer at mint time (CreatePostSystemActions).
+func TestBundleRejectsSystemActions(t *testing.T) {
+	elp := (&EnvelopeBuilder{}).SetNonce(0).
+		SetAction(NewScheduleCandidateDeactivation(identityset.Address(5))).
+		Build()
+	selp, err := Sign(elp, identityset.PrivateKey(7))
+	require.NoError(t, err)
+
+	t.Run("Add rejects system action", func(t *testing.T) {
+		b := NewBundle()
+		require.ErrorIs(t, b.Add(selp), ErrInvalidAct)
+	})
+
+	t.Run("LoadProto rejects system action", func(t *testing.T) {
+		pb := &iotextypes.Bundle{
+			Actions:           []*iotextypes.Action{selp.Proto()},
+			TargetBlockNumber: 101,
+		}
+		b := NewBundle()
+		require.ErrorIs(t, b.LoadProto(pb, &Deserializer{}), ErrInvalidAct)
+	})
 }

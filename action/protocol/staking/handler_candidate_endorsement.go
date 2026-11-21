@@ -99,7 +99,15 @@ func (p *Protocol) handleCandidateEndorsement(ctx context.Context, act *action.C
 		}
 		return log, nil, nil
 	default:
-		return log, nil, errors.New("invalid operation")
+		// The op comes from the action, so an out-of-range value is an invalid
+		// action rather than a broken internal invariant. Settle it as a
+		// failure receipt that charges gas and spends the nonce, like the
+		// default branch of handleCandidateDeactivate, instead of returning an
+		// error that would discard the draft block being minted.
+		return log, nil, &handleError{
+			err:           errors.New("invalid operation"),
+			failureStatus: iotextypes.ReceiptStatus_Failure,
+		}
 	}
 	// update endorsement state
 	if err := esm.Put(bucket.Index, &Endorsement{
@@ -161,10 +169,12 @@ func (p *Protocol) clearCandidateSelfStake(bucket *VoteBucket, cand *Candidate) 
 	if cand.SelfStakeBucketIdx != bucket.Index {
 		return errors.New("self-stake bucket index mismatch")
 	}
-	if err := cand.SubVote(p.calculateVoteWeight(bucket, true)); err != nil {
+	prevWeight := p.calculateVoteWeight(bucket, true)
+	newWeight := p.calculateVoteWeight(bucket, false)
+	if err := cand.SubVote(prevWeight); err != nil {
 		return errors.Wrapf(err, "failed to subtract vote weight for bucket index %d", bucket.Index)
 	}
-	if err := cand.AddVote(p.calculateVoteWeight(bucket, false)); err != nil {
+	if err := cand.AddVote(newWeight); err != nil {
 		return errors.Wrapf(err, "failed to add vote weight for bucket index %d", bucket.Index)
 	}
 	cand.SelfStakeBucketIdx = candidateNoSelfStakeBucketIndex

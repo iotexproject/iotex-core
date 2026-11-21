@@ -1,15 +1,23 @@
 package chainservice
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/mohae/deepcopy"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
+	"github.com/iotexproject/iotex-core/v2/blockchain"
 	"github.com/iotexproject/iotex-core/v2/blockchain/block"
+	"github.com/iotexproject/iotex-core/v2/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/v2/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/v2/config"
 	"github.com/iotexproject/iotex-core/v2/test/identityset"
+	"github.com/iotexproject/iotex-core/v2/test/mock/mock_blockchain"
 )
 
 func TestEstimateTipHeight(t *testing.T) {
@@ -103,4 +111,96 @@ func TestBlockDistanceAt(t *testing.T) {
 			r.Equal(tt.want, got, "test %d: %s", i, tt.name)
 		})
 	}
+}
+
+// TestCommitSyncedBlock covers how the block sync callback classifies a commit failure.
+// A height the block store has already moved past is a skip, not a failure: the block
+// store raises filedao.ErrInvalidTipHeight, which reaches the caller as
+// blockchain.ErrInvalidTipHeight.
+func TestCommitSyncedBlock(t *testing.T) {
+	r := require.New(t)
+	blk, err := block.NewBuilder(block.RunnableActions{}).
+		SetHeight(51).
+		SignAndBuild(identityset.PrivateKey(1))
+	r.NoError(err)
+
+	t.Run("committed", func(t *testing.T) {
+		bc := mock_blockchain.NewMockBlockchain(gomock.NewController(t))
+		bc.EXPECT().ValidateBlock(gomock.Any()).Return(nil).Times(1)
+		bc.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
+		committed, err := commitSyncedBlock(bc, &blk, 4)
+		r.NoError(err)
+		r.True(committed)
+	})
+	t.Run("height already committed by the block store", func(t *testing.T) {
+		bc := mock_blockchain.NewMockBlockchain(gomock.NewController(t))
+		bc.EXPECT().ValidateBlock(gomock.Any()).Return(nil).Times(1)
+		bc.EXPECT().CommitBlock(gomock.Any()).Return(filedao.ErrInvalidTipHeight).Times(1)
+		committed, err := commitSyncedBlock(bc, &blk, 4)
+		r.NoError(err)
+		r.False(committed)
+	})
+	t.Run("height already committed on validation", func(t *testing.T) {
+		bc := mock_blockchain.NewMockBlockchain(gomock.NewController(t))
+		bc.EXPECT().ValidateBlock(gomock.Any()).
+			Return(errors.Wrap(blockchain.ErrInvalidTipHeight, "wrong block height")).Times(1)
+		committed, err := commitSyncedBlock(bc, &blk, 4)
+		r.NoError(err)
+		r.False(committed)
+	})
+	t.Run("retry on delta state mismatch", func(t *testing.T) {
+		bc := mock_blockchain.NewMockBlockchain(gomock.NewController(t))
+		bc.EXPECT().ValidateBlock(gomock.Any()).Return(nil).Times(4)
+		bc.EXPECT().CommitBlock(gomock.Any()).Return(block.ErrDeltaStateMismatch).Times(4)
+		committed, err := commitSyncedBlock(bc, &blk, 4)
+		r.ErrorIs(err, block.ErrDeltaStateMismatch)
+		r.False(committed)
+	})
+	t.Run("retry on remote height too low", func(t *testing.T) {
+		bc := mock_blockchain.NewMockBlockchain(gomock.NewController(t))
+		// a single attempt is extended to 4 when the remote height is behind
+		bc.EXPECT().ValidateBlock(gomock.Any()).Return(blockdao.ErrRemoteHeightTooLow).Times(4)
+		committed, err := commitSyncedBlock(bc, &blk, 1)
+		r.ErrorIs(err, blockdao.ErrRemoteHeightTooLow)
+		r.False(committed)
+	})
+	t.Run("any other failure is reported", func(t *testing.T) {
+		bc := mock_blockchain.NewMockBlockchain(gomock.NewController(t))
+		bc.EXPECT().ValidateBlock(gomock.Any()).Return(nil).Times(1)
+		bc.EXPECT().CommitBlock(gomock.Any()).Return(errors.New("commit failed")).Times(1)
+		committed, err := commitSyncedBlock(bc, &blk, 4)
+		r.ErrorContains(err, "commit failed")
+		r.False(committed)
+	})
+}
+
+// TestBuildBlockDAOPropagatesStoreError guards against the block store
+// construction error being swallowed. The "else" branch of buildBlockDAO used
+// to redeclare err with ":=", shadowing the one the check after the block
+// reads, so a chain DB that could not be opened produced no error and left
+// cs.blockdao nil -- NewBlockDAOWithIndexersAndCache returns nil for a nil
+// store. The node then continued building over that nil.
+//
+// The forTest branch was unaffected, which is why no existing test caught it.
+func TestBuildBlockDAOPropagatesStoreError(t *testing.T) {
+	r := require.New(t)
+
+	// A directory where a bolt file is expected, so the store cannot be opened.
+	badPath := filepath.Join(t.TempDir(), "chain.db")
+	r.NoError(os.Mkdir(badPath, 0o755))
+
+	cfg := deepcopy.Copy(config.Default).(config.Config)
+	cfg.Chain.ChainDBPath = badPath
+	cfg.Chain.BlobStoreDBPath = ""
+	cfg.Chain.PatchReceiptIndexPath = ""
+	cfg.Chain.PatchTransactionLogPath = ""
+
+	// Without this the test could pass while proving nothing.
+	dbCfg := cfg.DB
+	dbCfg.DbPath = badPath
+	_, ferr := filedao.NewFileDAO(dbCfg, block.NewDeserializer(cfg.Chain.EVMNetworkID))
+	r.Error(ferr, "precondition: NewFileDAO must fail for this config")
+
+	builder := NewBuilder(cfg)
+	r.Error(builder.buildBlockDAO(false), "block store failure must be propagated, not swallowed")
 }

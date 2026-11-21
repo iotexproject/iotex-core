@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -41,6 +42,9 @@ const (
 	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
 	// _defaultBatchRequestLimit is the default maximum number of items in a batch.
 	_defaultBatchRequestLimit = 100 // Maximum number of items in a batch.
+	// _maxSubscriptionsPerConnection bounds the eth_subscribe subscriptions one
+	// websocket connection may hold at a time
+	_maxSubscriptionsPerConnection = 32
 )
 
 type (
@@ -62,6 +66,7 @@ type (
 		FilterType string     `json:"filterType"`
 		FromBlock  string     `json:"fromBlock,omitempty"`
 		ToBlock    string     `json:"toBlock,omitempty"`
+		BlockHash  string     `json:"blockHash,omitempty"`
 		Address    []string   `json:"address,omitempty"`
 		Topics     [][]string `json:"topics,omitempty"`
 	}
@@ -89,10 +94,17 @@ var (
 	errMsgBatchTooLarge  = errors.New("batch too large")
 	errHTTPNotSupported  = errors.New("http not supported")
 	errPanic             = errors.New("panic")
+	errSubscribeInBatch  = errors.New("eth_subscribe is not supported in batch requests")
+	errTooManySubs       = errors.New("too many subscriptions on this connection")
+	errJSTracer          = errors.New("JavaScript tracers are not supported, use a native tracer")
+	errTraceOutputLimit  = errors.New("trace output exceeds the limit; set a lower \"limit\", disable stack/storage/memory, or use callTracer")
+	errTooManyTraces     = errors.New("too many concurrent traces, retry later")
 
-	_pendingBlockNumber  = "pending"
-	_latestBlockNumber   = "latest"
-	_earliestBlockNumber = "earliest"
+	_pendingBlockNumber   = "pending"
+	_latestBlockNumber    = "latest"
+	_earliestBlockNumber  = "earliest"
+	_safeBlockNumber      = "safe"
+	_finalizedBlockNumber = "finalized"
 )
 
 func init() {
@@ -255,9 +267,18 @@ func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result
 		if !ok {
 			return errHTTPNotSupported
 		}
+		if _, isBatch := writer.(*apitypes.BatchWriter); isBatch {
+			// the batch writer is discarded once the batch response is
+			// flushed, so notifications written to it never reach the client
+			res, err = nil, errSubscribeInBatch
+			break
+		}
 		res, err = svr.subscribe(sc, web3Req, writer)
 	case "eth_unsubscribe":
 		res, err = svr.unsubscribe(web3Req)
+		if sc, ok := StreamFromContext(ctx); ok && (err == nil || errors.Is(err, errListenerNotFound)) {
+			sc.RemoveListener(web3Req.Get("params.0").String())
+		}
 	case "eth_getBlobSidecars":
 		res, err = svr.getBlobSidecars(web3Req)
 	case "debug_traceTransaction":
@@ -320,6 +341,9 @@ func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
 		if !id.Exists() || !method.Exists() {
 			return gjson.Result{}, errors.New("request field is incomplete")
 		}
+		if method.Type != gjson.String {
+			return gjson.Result{}, errors.New("request method must be a string")
+		}
 	}
 	return ret, nil
 }
@@ -349,7 +373,10 @@ func (svr *web3Handler) feeHistory(ctx context.Context, in *gjson.Result) (inter
 	if !blkCnt.Exists() || !newestBlk.Exists() {
 		return nil, errInvalidFormat
 	}
-	blocks, err := strconv.ParseUint(blkCnt.String(), 10, 64)
+	// blockCount is a hex quantity per the eth_feeHistory spec (e.g. "0x5"), but
+	// this endpoint has always accepted a bare decimal too. Parse both forms with
+	// geth's hex-or-decimal rule so "0xa" and "10" alike request ten blocks.
+	blocks, err := hexOrDecimalToNumber(blkCnt.String())
 	if err != nil {
 		return nil, err
 	}
@@ -606,7 +633,14 @@ func (svr *web3Handler) estimateGas(ctx context.Context, in *gjson.Result) (inte
 	if err != nil {
 		return "0x" + hex.EncodeToString(retval), err
 	}
-	if estimatedGas < 21000 {
+	// 21000 is the floor eth clients expect for a call that reaches the EVM. A
+	// native protocol action never does: it is charged its own intrinsic gas,
+	// which for most staking and rewarding actions is below 21000. Applying the
+	// floor there reports a number the receipt will never match -- 21000
+	// estimated against 10000 actually consumed for setVoterRewardDestination,
+	// measured on TestNet -- and wallets read that gap as a failed interaction
+	// even though the action succeeded and its view returned the new value.
+	if estimatedGas < 21000 && !isNativeProtocolTx(tx) {
 		estimatedGas = 21000
 	}
 	return uint64ToHex(estimatedGas), nil
@@ -894,6 +928,10 @@ func (svr *web3Handler) getTransactionByHash(in *gjson.Result) (interface{}, err
 }
 
 func (svr *web3Handler) getLogs(filter *filterObject) (interface{}, error) {
+	if filter.BlockHash != "" {
+		// parseLogRequest has rejected blockHash combined with fromBlock/toBlock
+		return svr.getLogsInBlock(filter.BlockHash, filter.Address, filter.Topics)
+	}
 	from, to, err := svr.parseBlockRange(filter.FromBlock, filter.ToBlock)
 	if err != nil {
 		return nil, err
@@ -1097,11 +1135,14 @@ func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (int
 	}
 	blkHashHex := util.Remove0xPrefix(blkHashStr.String())
 	blk, err := svr.coreService.BlockByHash(blkHashHex)
-	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blk.Receipts)) || len(blk.Receipts) == 0 {
+	if errors.Cause(err) == ErrNotFound {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if idx >= uint64(len(blk.Receipts)) {
+		return nil, nil
 	}
 	blkHash, err := hash.HexStringToHash256(blkHashHex)
 	if err != nil {
@@ -1124,11 +1165,14 @@ func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (i
 		return nil, err
 	}
 	blk, err := svr.coreService.BlockByHeight(num)
-	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(blk.Receipts)) || len(blk.Receipts) == 0 {
+	if errors.Cause(err) == ErrNotFound {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	if idx >= uint64(len(blk.Receipts)) {
+		return nil, nil
 	}
 	return svr.assembleConfirmedTransaction(blk.Block.HashBlock(), blk.Block.Actions[idx], blk.Receipts[idx])
 }
@@ -1186,16 +1230,10 @@ func (svr *web3Handler) newFilter(filter *filterObject) (interface{}, error) {
 		}
 	}
 
-	// cache filter and return hash value of the filter as filter id
+	// cache filter and return a random filter id
 	filter.FilterType = "log"
 	objInByte, _ := json.Marshal(*filter)
-	keyHash := hash.Hash256b(objInByte)
-	filterID := hex.EncodeToString(keyHash[:])
-	err := svr.cache.Set(filterID, objInByte)
-	if err != nil {
-		return nil, err
-	}
-	return "0x" + filterID, nil
+	return svr.installFilter(objInByte)
 }
 
 func (svr *web3Handler) newBlockFilter() (interface{}, error) {
@@ -1204,13 +1242,28 @@ func (svr *web3Handler) newBlockFilter() (interface{}, error) {
 		LogHeight:  svr.coreService.TipHeight(),
 	}
 	objInByte, _ := json.Marshal(filterObj)
-	keyHash := hash.Hash256b(objInByte)
-	filterID := hex.EncodeToString(keyHash[:])
-	err := svr.cache.Set(filterID, objInByte)
+	return svr.installFilter(objInByte)
+}
+
+// installFilter stores the filter under a newly generated random id, so that
+// every installed filter has its own id and cursor
+func (svr *web3Handler) installFilter(objInByte []byte) (interface{}, error) {
+	filterID, err := newFilterID()
 	if err != nil {
 		return nil, err
 	}
+	if err := svr.cache.Set(filterID, objInByte); err != nil {
+		return nil, err
+	}
 	return "0x" + filterID, nil
+}
+
+func newFilterID() (string, error) {
+	var id [32]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return "", errors.Wrap(err, "failed to generate filter id")
+	}
+	return hex.EncodeToString(id[:]), nil
 }
 
 func (svr *web3Handler) uninstallFilter(in *gjson.Result) (interface{}, error) {
@@ -1238,6 +1291,19 @@ func (svr *web3Handler) getFilterChanges(in *gjson.Result) (interface{}, error) 
 	)
 	switch filterObj.FilterType {
 	case "log":
+		if filterObj.BlockHash != "" {
+			// the filter selects a single existing block, so its logs are
+			// returned on the first poll only; LogHeight is 0 until then
+			if filterObj.LogHeight != 0 {
+				return []*getLogsResult{}, nil
+			}
+			logs, err := svr.getLogsInBlock(filterObj.BlockHash, filterObj.Address, filterObj.Topics)
+			if err != nil {
+				return nil, err
+			}
+			ret, newLogHeight = logs, tipHeight+1
+			break
+		}
 		if filterObj.LogHeight > tipHeight {
 			return []*getLogsResult{}, nil
 		}
@@ -1294,17 +1360,16 @@ func (svr *web3Handler) getFilterLogs(in *gjson.Result) (interface{}, error) {
 	if filterObj.FilterType != "log" {
 		return nil, errInvalidFilterID
 	}
-	from, to, err := svr.parseBlockRange(filterObj.FromBlock, filterObj.ToBlock)
-	if err != nil {
-		return nil, err
-	}
-	return svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
+	return svr.getLogs(&filterObj)
 }
 
 func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	subscription := in.Get("params.0")
 	if !subscription.Exists() {
 		return nil, errInvalidFormat
+	}
+	if ctx.ListenerCount() >= _maxSubscriptionsPerConnection {
+		return nil, errTooManySubs
 	}
 	switch subscription.String() {
 	case "newHeads":
@@ -1322,11 +1387,15 @@ func (svr *web3Handler) subscribe(ctx *StreamContext, in *gjson.Result, writer a
 
 func (svr *web3Handler) streamBlocks(ctx *StreamContext, writer apitypes.Web3ResponseWriter) (interface{}, error) {
 	chainListener := svr.coreService.ChainListener()
-	streamID, err := chainListener.AddResponder(NewWeb3BlockListener(writer.Write))
+	listener := newWeb3BlockListener(writer.Write)
+	streamID, err := chainListener.AddResponder(listener)
 	if err != nil {
+		listener.Exit()
 		return nil, err
 	}
-	ctx.AddListener(streamID)
+	ctx.addListener(streamID, listener.sender.closed, func() {
+		_, _ = chainListener.RemoveResponder(streamID)
+	})
 	return streamID, nil
 }
 
@@ -1336,11 +1405,15 @@ func (svr *web3Handler) streamLogs(ctx *StreamContext, filterObj *filterObject, 
 		return nil, err
 	}
 	chainListener := svr.coreService.ChainListener()
-	streamID, err := chainListener.AddResponder(NewWeb3LogListener(filter, writer.Write))
+	listener := newWeb3LogListener(filter, writer.Write)
+	streamID, err := chainListener.AddResponder(listener)
 	if err != nil {
+		listener.Exit()
 		return nil, err
 	}
-	ctx.AddListener(streamID)
+	ctx.addListener(streamID, listener.sender.closed, func() {
+		_, _ = chainListener.RemoveResponder(streamID)
+	})
 	return streamID, nil
 }
 

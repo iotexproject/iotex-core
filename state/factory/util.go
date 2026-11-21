@@ -117,11 +117,50 @@ func protocolCommit(ctx context.Context, sm protocol.StateManager) error {
 	return nil
 }
 
-func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, [][]byte, error) {
+// rangeScanFromConfig turns the Range/Limit state options into a *db.RangeScan,
+// returning nil when the caller asked for neither. A nil result MUST keep the
+// legacy code path bit-identical.
+func rangeScanFromConfig(cfg *protocol.StateConfig) *db.RangeScan {
+	if cfg.RangeMin == nil && cfg.RangeMax == nil && cfg.Limit <= 0 {
+		return nil
+	}
+	return &db.RangeScan{
+		Min:   cfg.RangeMin,
+		Max:   cfg.RangeMax,
+		Limit: cfg.Limit,
+	}
+}
+
+// validateStatesConfig rejects option combinations that have no single meaning.
+// Keys and Range/Limit are mutually exclusive: Keys asks for a specific,
+// caller-ordered set of keys (and reports missing ones as nil values), while
+// Range/Limit asks for whatever happens to exist in an interval, in key order.
+// Silently letting one win over the other would make the result depend on
+// evaluation order, so it is an error.
+func validateStatesConfig(cfg *protocol.StateConfig) error {
+	if cfg.Keys == nil {
+		return nil
+	}
+	if cfg.RangeMin != nil || cfg.RangeMax != nil || cfg.Limit > 0 {
+		return errors.Wrap(ErrNotSupported, "Keys option cannot be combined with Range/Limit options")
+	}
+	return nil
+}
+
+func readStates(kvStore db.KVStore, namespace string, keys [][]byte, scan *db.RangeScan) ([][]byte, [][]byte, error) {
 	var (
 		ks, values [][]byte
 		err        error
 	)
+	if scan != nil {
+		// ordered range scan: an empty range is a legitimate empty result, NOT
+		// state.ErrStateNotExist
+		scanner, ok := kvStore.(db.KVStoreWithRangeScan)
+		if !ok {
+			return nil, nil, errors.Wrapf(ErrNotSupported, "kvstore %T does not support ordered range scan", kvStore)
+		}
+		return scanner.ScanRange(namespace, scan.Min, scan.Max, scan.Limit)
+	}
 	if keys == nil {
 		ks, values, err = kvStore.Filter(namespace, func(k, v []byte) bool { return true }, nil, nil)
 		if err != nil {

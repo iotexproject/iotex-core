@@ -34,8 +34,8 @@ type (
 	EventHandler interface {
 		PutBucketType(address.Address, *ContractStakingBucketType) error
 		DeductBucket(address.Address, uint64) (*contractstaking.Bucket, error)
-		PutBucket(address.Address, uint64, *contractstaking.Bucket) error
-		DeleteBucket(address.Address, uint64) error
+		PutBucket(context.Context, address.Address, uint64, *contractstaking.Bucket) error
+		DeleteBucket(context.Context, address.Address, uint64) error
 	}
 	// EventProcessor is the interface for processing staking events
 	EventProcessor interface {
