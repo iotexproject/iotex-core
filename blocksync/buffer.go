@@ -30,17 +30,19 @@ func newBlockBuffer(bufferSize, intervalSize uint64) *blockBuffer {
 	}
 }
 
-func (b *blockBuffer) Pop(height uint64) []*peerBlock {
+// Pop removes and returns the blocks buffered at height, and whether any
+// candidate for that height was refused or evicted while it was buffered.
+func (b *blockBuffer) Pop(height uint64) ([]*peerBlock, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	queue, ok := b.blockQueues[height]
 	if !ok {
-		return nil
+		return nil, false
 	}
-	blks := queue.dequeAll()
+	blks, lossy := queue.dequeAll()
 	delete(b.blockQueues, height)
 
-	return blks
+	return blks, lossy
 }
 
 // AddBlock tries to put given block into buffer and flush buffer into blockchain.
@@ -54,10 +56,19 @@ func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) (bool, uint64) 
 	if blkHeight > tipHeight+b.bufferSize {
 		return false, tipHeight + b.bufferSize
 	}
+	// heights at or below the tip can never be popped again; drop them so the
+	// map stays bounded by the (tip, tip+bufferSize] window it is meant to hold.
+	for h := range b.blockQueues {
+		if h <= tipHeight {
+			delete(b.blockQueues, h)
+		}
+	}
 	if _, ok := b.blockQueues[blkHeight]; !ok {
 		b.blockQueues[blkHeight] = newUniQueue()
 	}
-	b.blockQueues[blkHeight].enque(blk)
+	if !b.blockQueues[blkHeight].enque(blk) {
+		return false, blkHeight
+	}
 	return true, blkHeight
 }
 
@@ -82,7 +93,9 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(confirmedHeight uint64, targetHei
 
 	var iLen uint64
 	for h := confirmedHeight + 1; h <= targetHeight; h++ {
-		if _, ok := b.blockQueues[h]; !ok {
+		// a lossy height may have refused the authentic block, so keep asking
+		// for it instead of treating it as received
+		if q, ok := b.blockQueues[h]; !ok || q.lossy {
 			iLen++
 			if !startSet {
 				start = h

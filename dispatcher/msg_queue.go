@@ -56,10 +56,18 @@ func (q *queueLimit) increment(peer string) bool {
 func (q *queueLimit) decrement(peer string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.counts[peer] <= 0 {
+	n := q.counts[peer]
+	if n <= 0 {
+		delete(q.counts, peer)
 		return
 	}
-	q.counts[peer]--
+	if n--; n == 0 {
+		// drop the key rather than keep a zero: otherwise the map retains an
+		// entry for every peer that ever sent a block request.
+		delete(q.counts, peer)
+		return
+	}
+	q.counts[peer] = n
 }
 
 func newMsgQueueMgr(cfg msgQueueConfig, handler func(msg *message)) *msgQueueMgr {
@@ -168,7 +176,21 @@ func (m *msgQueueMgr) handleMsgOnQueue(q string, msg *message) {
 }
 
 func (m *msgQueueMgr) Queue(msg *message, subscriber Subscriber) bool {
-	var queue msgQueue
+	var (
+		queue    msgQueue
+		reserved bool
+		queued   bool
+	)
+	// A block-request slot is reserved below and released only by a successful
+	// dequeue in consume(). Every path out of this function that does not
+	// enqueue must therefore release it here -- otherwise a peer whose requests
+	// are dropped (a full queue, a subscriber filter) leaks a slot per drop and
+	// is locked out of block sync for good after blockSyncLimit drops.
+	defer func() {
+		if reserved && !queued {
+			m.blockRequestPeers.decrement(msg.peer)
+		}
+	}()
 	switch msg.msgType {
 	case iotexrpc.MessageType_ACTION, iotexrpc.MessageType_ACTIONS, iotexrpc.MessageType_ACTION_HASH, iotexrpc.MessageType_ACTION_REQUEST:
 		queue = m.queues[actionQ]
@@ -179,6 +201,7 @@ func (m *msgQueueMgr) Queue(msg *message, subscriber Subscriber) bool {
 			log.L().Warn("Peer has reached the block sync request limit.", zap.String("peer", msg.peer), zap.Int("limit", m.blockRequestPeers.limit))
 			return false
 		}
+		reserved = true
 		queue = m.queues[blockSyncQ]
 	case iotexrpc.MessageType_CONSENSUS:
 		queue = m.queues[consensusQ]
@@ -191,6 +214,7 @@ func (m *msgQueueMgr) Queue(msg *message, subscriber Subscriber) bool {
 	}
 	select {
 	case queue <- msg:
+		queued = true
 	default:
 		log.L().Warn("Queue is full.", zap.Any("msgType", msg.msgType))
 		return false

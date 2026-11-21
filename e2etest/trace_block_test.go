@@ -73,6 +73,7 @@ func TestTraceBlockByNumber(t *testing.T) {
 	cfg, sender, senderSK, receiver := traceBlockSetup(t)
 
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	gasPrice := big.NewInt(unit.Qev)
 	ctx := context.Background()
@@ -136,6 +137,7 @@ func TestTraceBlockByNumberPrestateTracer(t *testing.T) {
 	cfg, sender, senderSK, receiver := traceBlockSetup(t)
 
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	gasPrice := big.NewInt(unit.Qev)
 	ctx := context.Background()
@@ -206,6 +208,7 @@ func TestTraceBlockPerTxIsolation(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[senderB] = unit.ConvertIotxToRau(1000000).String()
 
 	test := newE2ETest(t, cfg)
+	defer test.teardown()
 	chainID := cfg.Chain.ID
 	gasPrice := big.NewInt(unit.Qev)
 	ctx := context.Background()

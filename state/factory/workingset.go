@@ -9,9 +9,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math/big"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime/debug"
 	"slices"
 	"time"
@@ -57,15 +59,32 @@ var (
 		},
 		[]string{"type"},
 	)
+	_mintSkipMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_mint_skipped_actions_total",
+			Help: "Number of actions left out of a draft block while minting, by reason and action type",
+		},
+		[]string{"reason", "action"},
+	)
 
 	errInvalidSystemActionLayout = errors.New("system action layout is invalid")
-	errUnfoldTxContainer         = errors.New("failed to unfold tx container")
 	errDeployerNotWhitelisted    = errors.New("deployer not whitelisted")
+	// errMintDeadline tells the mint loop to stop picking actions and seal
+	// the draft, because the deadline passed while an action was running
+	errMintDeadline = errors.New("mint deadline passed while running an action")
+	// errMintActionPanic marks an action that panicked while running during mint
+	errMintActionPanic = errors.New("recovered from panic while running action")
 )
+
+// _mintDropLogLimit caps the actions a draft logs in detail when it drops
+// them for failing to run, so that a pool full of failing actions cannot
+// flood the log; the rest are counted and summed up once the draft is done.
+const _mintDropLogLimit = 16
 
 func init() {
 	prometheus.MustRegister(_stateDBMtc)
 	prometheus.MustRegister(_mintAbility)
+	prometheus.MustRegister(_mintSkipMtc)
 }
 
 // deductBlockGas takes the gas reported by a receipt out of the gas a block has
@@ -96,8 +115,12 @@ type (
 		finalized              bool
 		txValidator            *protocol.GenericValidator
 		receipts               []*action.Receipt
+		captureStateDiff       bool              // capture the write queue for a state diff callback
 		stateDiffEntries       []WriteQueueEntry // captured write queue for state diff broadcasting
 		stateDiffDigest        []byte            // cached digest bytes for state diff callback
+		mintDrops              int               // actions dropped from the draft for failing to run
+		mintOwnerOrOpChanged   bool              // a candidate's owner or operator changed in this block (mint only)
+		mintDeferred           map[string]bool   // senders held back to the next block (mint only)
 	}
 )
 
@@ -106,8 +129,14 @@ func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, s
 		height:                 height,
 		views:                  views,
 		viewsSnapshots:         make(map[int]int),
+		mintDeferred:           make(map[string]bool),
 		store:                  store,
 		workingSetStoreFactory: storeFactory,
+	}
+	// Set here so every path, including a working set derived from an
+	// uncommitted parent, follows the factory's current callback state.
+	if sdb, ok := storeFactory.(*stateDB); ok {
+		ws.captureStateDiff = sdb.diffCallback.Load() != nil
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
@@ -227,7 +256,15 @@ func (ws *workingSet) runAction(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get hash")
 	}
-	defer ws.finalizeTx(ctx)
+	// Finalize the tx only once it has run through: erigon drops its revert
+	// journal on FinalizeTx, so a failed action that mint is about to revert
+	// must not be finalized first.
+	succeeded := false
+	defer func() {
+		if succeeded {
+			ws.finalizeTx(ctx)
+		}
+	}()
 	if revertAllSnapshots {
 		defer ws.store.ResetSnapshots()
 	}
@@ -278,6 +315,7 @@ func (ws *workingSet) runAction(
 			}
 		}
 	}
+	succeeded = true
 	return receipt, nil
 }
 
@@ -336,7 +374,7 @@ func (ws *workingSet) finalize(ctx context.Context) error {
 	}
 	// Capture write queue entries and digest for state diff broadcasting.
 	// Must happen after Finalize (which writes height) but before Commit (which flushes).
-	if sdbStore := ws.getStateDBStore(); sdbStore != nil {
+	if sdbStore := ws.getStateDBStore(); ws.captureStateDiff && sdbStore != nil {
 		ws.stateDiffEntries = sdbStore.CaptureWriteQueue()
 		d := sdbStore.Digest()
 		ws.stateDiffDigest = d[:]
@@ -575,37 +613,166 @@ func (ws *workingSet) validateNonceSkipSystemAction(ctx context.Context, blk *bl
 }
 
 func (ws *workingSet) checkNonceContinuity(ctx context.Context, accountNonceMap map[string][]uint64) error {
-	var (
-		pendingNonce uint64
-		useZeroNonce = protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount
-	)
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
-		confirmedState, err := accountutil.AccountState(ctx, ws, addr)
+		pendingNonce, err := ws.continuityBaseNonce(ctx, addr)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
+			return err
 		}
-		slices.Sort(receivedNonces)
-		if useZeroNonce {
-			pendingNonce = confirmedState.PendingNonceConsideringFreshAccount()
-		} else {
-			pendingNonce = confirmedState.PendingNonce()
-		}
-		for i, nonce := range receivedNonces {
-			if nonce != pendingNonce+uint64(i) {
-				return errors.Wrapf(
-					action.ErrNonceTooHigh,
-					"the %d-th nonce %d of address %s (init pending nonce %d) is not continuously increasing",
-					i,
-					nonce,
-					srcAddr,
-					pendingNonce,
-				)
-			}
+		if err := checkNonceSequence(srcAddr, pendingNonce, receivedNonces); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// continuityBaseNonce returns the nonce that checkNonceContinuity expects the
+// first action of addr in a block to carry, read from the current state
+func (ws *workingSet) continuityBaseNonce(ctx context.Context, addr address.Address) (uint64, error) {
+	confirmedState, err := accountutil.AccountState(ctx, ws, addr)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to get the confirmed nonce of address %s", addr)
+	}
+	if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+		return confirmedState.PendingNonceConsideringFreshAccount(), nil
+	}
+	return confirmedState.PendingNonce(), nil
+}
+
+// checkNonceSequence sorts nonces in place and checks that they run
+// continuously from pendingNonce
+func checkNonceSequence(srcAddr string, pendingNonce uint64, nonces []uint64) error {
+	slices.Sort(nonces)
+	for i, nonce := range nonces {
+		if nonce != pendingNonce+uint64(i) {
+			return errors.Wrapf(
+				action.ErrNonceTooHigh,
+				"the %d-th nonce %d of address %s (init pending nonce %d) is not continuously increasing",
+				i,
+				nonce,
+				srcAddr,
+				pendingNonce,
+			)
+		}
+	}
+	return nil
+}
+
+// mintNonceGate keeps the nonces in a draft block passing
+// checkNonceContinuity, which checks each sender's nonces in the block against
+// the state at the start of the block. The live working set is not a valid
+// baseline: an action may move the nonce of an account other than its sender
+// (an EIP-7702 authorization does, and so does a CREATE run by an account's
+// delegated code), so a nonce that passes the live check at mint can still
+// fail continuity at validation.
+type mintNonceGate struct {
+	base     map[string]uint64
+	included map[string][]uint64
+}
+
+// newMintNonceGate reads the base nonce of every sender in pending; it must
+// run before any action does
+func (ws *workingSet) newMintNonceGate(ctx context.Context, pending map[string][]*action.SealedEnvelope) (*mintNonceGate, error) {
+	g := &mintNonceGate{
+		base:     make(map[string]uint64),
+		included: make(map[string][]uint64),
+	}
+	for _, acts := range pending {
+		if len(acts) == 0 {
+			continue
+		}
+		if err := g.addBase(ctx, ws, acts[0]); err != nil {
+			return nil, err
+		}
+	}
+	return g, nil
+}
+
+// addBundles reads the base nonce of every sender in bundles; it must run
+// before any action does
+func (g *mintNonceGate) addBundles(ctx context.Context, ws *workingSet, bundles []*action.Bundle) error {
+	for _, bundle := range bundles {
+		if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
+			return g.addBase(ctx, ws, selp)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (g *mintNonceGate) addBase(ctx context.Context, ws *workingSet, selp *action.SealedEnvelope) error {
+	sender := selp.SenderAddress()
+	if sender == nil {
+		// admit rejects such a bundle, and validateAndRun such an action
+		return nil
+	}
+	if _, ok := g.base[sender.String()]; ok {
+		return nil
+	}
+	n, err := ws.continuityBaseNonce(ctx, sender)
+	if err != nil {
+		return err
+	}
+	g.base[sender.String()] = n
+	return nil
+}
+
+// admit checks bundle and returns its nonces by sender, to be passed to
+// include if the bundle makes it into the block
+func (g *mintNonceGate) admit(bundle *action.Bundle) (map[string][]uint64, error) {
+	nonces := make(map[string][]uint64)
+	if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
+		sender := selp.SenderAddress()
+		if sender == nil {
+			return errors.New("failed to get address")
+		}
+		nonces[sender.String()] = append(nonces[sender.String()], selp.Nonce())
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	for sender, own := range nonces {
+		base, ok := g.base[sender]
+		if !ok {
+			return nil, errors.Errorf("no base nonce for address %s", sender)
+		}
+		seq := append(slices.Clone(g.included[sender]), own...)
+		if err := checkNonceSequence(sender, base, seq); err != nil {
+			return nil, err
+		}
+	}
+	return nonces, nil
+}
+
+func (g *mintNonceGate) include(nonces map[string][]uint64) {
+	for sender, own := range nonces {
+		g.included[sender] = append(g.included[sender], own...)
+	}
+}
+
+// pastNext reports whether selp's nonce is beyond the next nonce its sender
+// can use in the block. Such an action cannot pass checkNonceContinuity, and
+// neither can its sender's later actions, which have higher nonces. A nonce
+// below the next one is left to the live check, which rejects it as too low.
+func (g *mintNonceGate) pastNext(selp *action.SealedEnvelope) bool {
+	sender := selp.SenderAddress()
+	if sender == nil {
+		return false
+	}
+	base, ok := g.base[sender.String()]
+	if !ok {
+		return true
+	}
+	return selp.Nonce() > base+uint64(len(g.included[sender.String()]))
+}
+
+// includeAction records the nonce of selp, which made it into the block
+func (g *mintNonceGate) includeAction(selp *action.SealedEnvelope) {
+	if sender := selp.SenderAddress(); sender != nil {
+		g.included[sender.String()] = append(g.included[sender.String()], selp.Nonce())
+	}
 }
 
 func (ws *workingSet) Process(ctx context.Context, actions []*action.SealedEnvelope) error {
@@ -886,15 +1053,26 @@ func (ws *workingSet) pickAndRunActions(
 		if dl, ok := ctx.Deadline(); ok {
 			deadline = &dl
 		}
+		pending := ap.PendingActionMap()
+		nonceGate, err := ws.newMintNonceGate(ctx, pending)
+		if err != nil {
+			return nil, err
+		}
 		bp := ap.BundlePool()
 		if bp != nil {
 			bids, _, bundles, err := bp.BundlesAtHeight(ws.height)
 			switch errors.Cause(err) {
 			case nil:
+				if err := nonceGate.addBundles(ctx, ws, bundles); err != nil {
+					return nil, err
+				}
 				for i, bundle := range bundles {
 					bh := bundle.Hash()
 					log.L().Info("processing bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.String("hash", hex.EncodeToString(bh[:])), zap.Int("size", bundle.Len()), zap.Uint64("gas", bundle.Gas()))
 					bBlkCtx := blkCtx
+					// A struct copy shares the big.Int's words, and adding the
+					// bundle's tips to them in place would also change blkCtx.
+					bBlkCtx.AccumulatedTips = *new(big.Int).Set(&blkCtx.AccumulatedTips)
 					bGasLimit := bBlkCtx.GasLimit
 					if deadline != nil && time.Now().After(*deadline) {
 						duration := time.Since(bBlkCtx.BlockTimeStamp)
@@ -906,6 +1084,15 @@ func (ws *workingSet) pickAndRunActions(
 						log.L().Info("Skip bundle exceeds gas limit", zap.String("hash", hex.EncodeToString(bh[:])), zap.Uint64("height", ws.height), zap.Uint64("gas", bundle.Gas()), zap.Uint64("blkGasLimit", bGasLimit))
 						continue
 					}
+					// Block validation runs checkNonceContinuity over the whole
+					// block, while the per-action mint check only rejects a nonce
+					// that is too low. Check the bundle's nonces the way block
+					// validation will before any of its actions runs.
+					bundleNonces, err := nonceGate.admit(bundle)
+					if err != nil {
+						log.L().Info("Skip bundle with non-continuous nonces", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
+						continue
+					}
 					bBlobCnt := blobCnt
 					bReceipts := make([]*action.Receipt, 0, bundle.Len())
 					// ws.Snapshot() rather than ws.store.Snapshot(): a bundle
@@ -914,7 +1101,7 @@ func (ws *workingSet) pickAndRunActions(
 					// set snapshot records both. Mint is the only caller of
 					// this path, so a proposer that skips a bundle carries on
 					// from the state it held before the bundle ran.
-					si := ws.Snapshot()
+					si, ownerOrOpChanged, deferred := ws.Snapshot(), ws.mintOwnerOrOpChanged, maps.Clone(ws.mintDeferred)
 					if err := bundle.ForEach(func(selp *action.SealedEnvelope) error {
 						_, _, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, selp, bGasLimit, bBlobCnt, uint64(blobLimit), false)
 						if err != nil {
@@ -938,11 +1125,21 @@ func (ws *workingSet) pickAndRunActions(
 						return nil
 					}); err != nil {
 						log.L().Warn("failed to process bundle", zap.String("uuid", bids[i]), zap.Uint64("height", ws.height), zap.Error(err))
-						if err := ws.Revert(si); err != nil {
+						// revertDuringMint, not Revert: a bundle action that ran
+						// through is finalized before the next one runs, and on the
+						// erigon store FinalizeTx drops the revert journal, so
+						// reverting the pre-bundle snapshot can panic;
+						// revertDuringMint returns that as an error.
+						if err := ws.revertDuringMint(si); err != nil {
 							return nil, errors.Wrapf(err, "failed to revert snapshot %d for bundle %s at height %d", si, bids[i], ws.height)
 						}
+						// drop the bundle's block context too, or what runs
+						// next sees the tips of actions that are not in the block
+						ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+						ws.mintOwnerOrOpChanged, ws.mintDeferred = ownerOrOpChanged, deferred
 						continue
 					}
+					nonceGate.include(bundleNonces)
 					for _, receipt := range bReceipts {
 						blkCtx.GasLimit = deductBlockGas(fCtx, blkCtx.GasLimit, receipt.GasConsumed)
 						if fCtx.EnableDynamicFeeTx && receipt.PriorityFee() != nil {
@@ -964,7 +1161,7 @@ func (ws *workingSet) pickAndRunActions(
 				return nil, errors.Wrapf(err, "failed to get bundles at height %d", ws.height)
 			}
 		}
-		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
+		actionIterator := actioniterator.NewActionIterator(pending)
 		for {
 			if deadline != nil && time.Now().After(*deadline) {
 				duration := time.Since(blkCtx.BlockTimeStamp)
@@ -977,12 +1174,23 @@ func (ws *workingSet) pickAndRunActions(
 				_mintAbility.WithLabelValues("saturation").Set(0)
 				break
 			}
+			// the live check below only rejects a nonce that is too low
+			if nonceGate.pastNext(nextAction) {
+				countMintSkip("nonce_gap", nextAction)
+				actionIterator.SkipAccount(nextAction.SenderAddress())
+				continue
+			}
 			popAccount, deleteAction, receipt, err := ws.validateAndRun(ctxWithBlockContext, reg, nextAction, blkCtx.GasLimit, blobCnt, uint64(blobLimit), true)
 			if popAccount {
-				actionIterator.PopAccount()
+				actionIterator.SkipAccount(nextAction.SenderAddress())
 			}
 			if deleteAction {
 				ap.DeleteAction(nextAction.SenderAddress())
+			}
+			if errors.Is(err, errMintDeadline) {
+				log.L().Warn("Stop processing actions due to deadline, please consider increasing hardware", zap.Timep("deadline", deadline), zap.Duration("duration", time.Since(blkCtx.BlockTimeStamp)), zap.Int("actions", len(executedActions)), zap.Uint64("gas", fullGas-blkCtx.GasLimit))
+				_mintAbility.WithLabelValues("saturation").Set(1)
+				break
 			}
 			if err != nil {
 				return nil, err
@@ -995,6 +1203,7 @@ func (ws *workingSet) pickAndRunActions(
 				(&blkCtx.AccumulatedTips).Add(&blkCtx.AccumulatedTips, receipt.PriorityFee())
 			}
 			ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+			nonceGate.includeAction(nextAction)
 			receipts = append(receipts, receipt)
 			executedActions = append(executedActions, nextAction)
 			blobCnt += uint64(len(nextAction.BlobHashes()))
@@ -1006,6 +1215,10 @@ func (ws *workingSet) pickAndRunActions(
 				break
 			}
 		}
+	}
+
+	if ws.mintDrops > _mintDropLogLimit {
+		log.L().Warn("dropped more actions that failed during mint than were logged", zap.Uint64("height", ws.height), zap.Int("dropped", ws.mintDrops), zap.Int("logged", _mintDropLogLimit))
 	}
 
 	if !fCtx.PreStateSystemAction {
@@ -1046,23 +1259,53 @@ func (ws *workingSet) validateAndRun(
 ) (bool, bool, *action.Receipt, error) {
 	if nextAction.Gas() > gasLimit {
 		log.L().Info("action gas exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("gasLimit", gasLimit), zap.Uint64("actionGas", nextAction.Gas()))
+		countMintSkip("gas_limit", nextAction)
 		return true, false, nil, nil
 	}
 	if blobCnt+uint64(len(nextAction.BlobHashes())) > uint64(blobLimit) {
 		log.L().Info("blob count exceeds limit", zap.Uint64("height", ws.height), zap.Uint64("blobCnt", blobCnt), zap.Uint64("blobLimit", blobLimit))
+		countMintSkip("blob_limit", nextAction)
 		return true, false, nil, nil
 	}
 	if container, ok := nextAction.Envelope.(action.TxContainer); ok {
 		if err := container.Unfold(nextAction, ctx, ws.checkContract); err != nil {
 			log.L().Info("failed to unfold tx container", zap.Uint64("height", ws.height), zap.Error(err))
+			countMintSkip("unfold", nextAction)
 			return true, true, nil, nil
 		}
+		// Unfold replaces the folded container with the native action, but
+		// admission only ran SanityCheck on the container, whose check does not
+		// decode the staking calldata. Re-run the stateless checks on the
+		// unfolded action here, so that an action that is invalid only after
+		// unfolding (e.g. depositToStake with amount 0) is left out of the block
+		// instead of being minted into it.
+		fCtx := protocol.MustGetFeatureCtx(ctx)
+		if err := nextAction.Envelope.SanityCheck(); err != nil && !fCtx.Tolerate(err) {
+			log.L().Info("unfolded action failed sanity check", zap.Uint64("height", ws.height), zap.Error(err))
+			countMintSkip("sanity", nextAction)
+			return true, true, nil, nil
+		}
+		if intrinsicGas, err := nextAction.IntrinsicGas(); err != nil {
+			log.L().Info("failed to get unfolded action intrinsic gas", zap.Uint64("height", ws.height), zap.Error(err))
+			countMintSkip("intrinsic_gas", nextAction)
+			return true, true, nil, nil
+		} else if intrinsicGas > nextAction.Gas() {
+			log.L().Info("unfolded action intrinsic gas exceeds gas limit", zap.Uint64("height", ws.height), zap.Uint64("intrinsicGas", intrinsicGas), zap.Uint64("gas", nextAction.Gas()))
+			countMintSkip("intrinsic_gas", nextAction)
+			return true, true, nil, nil
+		}
+	}
+	// a sender held back by the candidate cap below waits for the next block
+	if sender := nextAction.SenderAddress(); sender != nil && ws.mintDeferred[sender.String()] {
+		return false, false, nil, nil
 	}
 	if err := ws.txValidator.ValidateWithState(ctx, nextAction); err != nil {
 		log.L().Debug("failed to ValidateWithState", zap.Uint64("height", ws.height), zap.Error(err))
 		if !errors.Is(err, action.ErrNonceTooLow) {
+			countMintSkip("validate", nextAction)
 			return true, true, nil, nil
 		}
+		countMintSkip("nonce_too_low", nextAction)
 		return false, false, nil, nil
 	}
 	actionCtx, err := withActionCtx(ctx, nextAction)
@@ -1075,41 +1318,125 @@ func (ws *workingSet) validateAndRun(
 			}
 		}
 	}
-	caller := nextAction.SenderAddress()
 	if err != nil {
-		if caller == nil {
-			return false, false, nil, errors.New("failed to get address")
-		}
 		log.L().Info("failed to validate tx", zap.Uint64("height", ws.height), zap.Error(err))
-		return true, true, nil, nil
+		countMintSkip("validate", nextAction)
+		// without a sender there is nobody to evict
+		return true, nextAction.SenderAddress() != nil, nil, nil
 	}
-	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, revertAllSnapshots)
-	switch errors.Cause(err) {
-	case nil:
-		// do nothing
-	case action.ErrGasLimit:
-		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
-		return true, false, nil, nil
-	case action.ErrChainID, errUnfoldTxContainer, errDeployerNotWhitelisted:
-		log.L().Info("runAction() failed", zap.Uint64("height", ws.height), zap.Error(err))
-		return true, true, nil, nil
-	default:
-		nextActionHash, hashErr := nextAction.Hash()
-		if hashErr != nil {
-			return true, true, nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
+	// after a candidate's owner or operator changed in this block, later
+	// candidate actions, and the rest of their senders' actions, wait
+	if ws.mintOwnerOrOpChanged && isCandidateAction(nextAction.Action()) {
+		if sender := nextAction.SenderAddress(); sender != nil {
+			ws.mintDeferred[sender.String()] = true
 		}
-		return true, true, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
+		return false, false, nil, nil
 	}
-	return false, false, receipt, nil
+	// An action that fails says nothing about the rest of the block, so it is
+	// reverted to this snapshot and dropped on its own; runAction must not
+	// reset the store snapshots before that, so the reset is deferred here.
+	si := ws.Snapshot()
+	if revertAllSnapshots {
+		defer ws.store.ResetSnapshots()
+	}
+	receipt, err := ws.runActionDuringMint(actionCtx, nextAction, false)
+	switch {
+	case err == nil:
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) && changesOwnerOrOperator(nextAction.Action()) {
+			ws.mintOwnerOrOpChanged = true
+		}
+		return false, false, receipt, nil
+	case ctx.Err() != nil:
+		// neither is the sender's fault, so it is not evicted
+		if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return true, false, nil, errors.Wrap(err, "mint cancelled while running an action")
+		}
+		// out of time: drop this action and seal what the draft holds, as
+		// the mint loop does when the deadline passes between actions
+		if rerr := ws.revertDuringMint(si); rerr != nil {
+			return true, false, nil, errors.Wrap(rerr, "failed to revert action at mint deadline")
+		}
+		countMintSkip("deadline", nextAction)
+		return true, false, nil, errMintDeadline
+	case errors.Cause(err) == action.ErrGasLimit:
+		log.L().Info("runAction() failed due to gas limit", zap.Uint64("height", ws.height), zap.Error(err))
+		countMintSkip("gas_limit", nextAction)
+		return true, false, nil, nil
+	}
+	nextActionHash, _ := nextAction.Hash()
+	if ws.mintDrops < _mintDropLogLimit {
+		log.L().Warn("dropping action that failed during mint", zap.Uint64("height", ws.height), log.Hex("action", nextActionHash[:]), zap.Error(err))
+	}
+	ws.mintDrops++
+	if rerr := ws.revertDuringMint(si); rerr != nil {
+		return true, true, nil, errors.Wrapf(rerr, "failed to revert action %x", nextActionHash)
+	}
+	reason := "run_failed"
+	if errors.Is(err, errMintActionPanic) {
+		reason = "panic"
+	}
+	countMintSkip(reason, nextAction)
+	return true, true, nil, nil
+}
+
+// countMintSkip counts an action left out of a draft block.
+func countMintSkip(reason string, selp *action.SealedEnvelope) {
+	actType := "unknown"
+	if act := selp.Envelope.Action(); act != nil {
+		t := reflect.TypeOf(act)
+		if t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		actType = t.Name()
+	}
+	_mintSkipMtc.WithLabelValues(reason, actType).Inc()
+}
+
+// revertDuringMint reverts the working set to snapshot si after an action
+// failed. The draft can only be kept if the revert succeeds, so a panic in
+// the revert is returned as an error and the caller abandons the draft.
+func (ws *workingSet) revertDuringMint(si int) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Errorf("recovered from panic while reverting snapshot %d: %v", si, r)
+		}
+	}()
+	if err := ws.Revert(si); err != nil {
+		return errors.Wrapf(err, "failed to revert snapshot %d", si)
+	}
+	return nil
+}
+
+// isCandidateAction reports whether act manages a candidate (not a bucket)
+func isCandidateAction(act action.Action) bool {
+	switch act.(type) {
+	case *action.CandidateRegister, *action.CandidateUpdate, *action.CandidateTransferOwnership,
+		*action.CandidateActivate, *action.CandidateDeactivate,
+		*action.SetVoterRewardOptIn:
+		return true
+	}
+	return false
+}
+
+// changesOwnerOrOperator reports whether act, if successful, may change a
+// candidate's owner or operator (an unchanged operator also counts)
+func changesOwnerOrOperator(act action.Action) bool {
+	switch act := act.(type) {
+	case *action.CandidateTransferOwnership:
+		return true
+	case *action.CandidateUpdate:
+		return act.OperatorAddress() != nil
+	}
+	return false
 }
 
 // runActionDuringMint runs a single action while assembling a draft block, recovering from
 // any panic raised in the process. A panic here otherwise unwinds past this whole draft (caught
 // only by the mint goroutine's recover in blockpreparer.go) and, unlike a normal error return,
 // skips the caller's sender-eviction logic — so the same poison action would be picked again on
-// every subsequent mint attempt, stalling block production instead of losing a single draft.
-// Converting the panic into an ordinary error routes it through validateAndRun's default case,
-// which evicts the sender from the pool before this draft is abandoned.
+// every subsequent mint attempt, stalling block production. Converting the panic into an
+// ordinary error lets validateAndRun revert and drop the action and evict its sender, and the
+// draft carries on without it.
 func (ws *workingSet) runActionDuringMint(ctx context.Context, selp *action.SealedEnvelope, revertAllSnapshots bool) (receipt *action.Receipt, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1118,12 +1445,14 @@ func (ws *workingSet) runActionDuringMint(ctx context.Context, selp *action.Seal
 			if hashErr != nil {
 				log.L().Error("failed to get action hash after recovering from mint-time panic", zap.Error(hashErr))
 			}
-			log.L().Error("recovered from panic while running action during mint; sender will be evicted from the pool",
-				log.Hex("action", actHash[:]),
-				zap.Any("panic", r),
-				zap.String("stack", string(debug.Stack())))
+			if ws.mintDrops < _mintDropLogLimit {
+				log.L().Error("recovered from panic while running action during mint; sender will be evicted from the pool",
+					log.Hex("action", actHash[:]),
+					zap.Any("panic", r),
+					zap.String("stack", string(debug.Stack())))
+			}
 			receipt = nil
-			err = errors.Errorf("recovered from panic while running action %x: %v", actHash, r)
+			err = errors.Wrapf(errMintActionPanic, "%x: %v", actHash, r)
 		}
 	}()
 	return ws.runAction(ctx, selp, revertAllSnapshots)
