@@ -372,7 +372,7 @@ func (etx *txContainer) ValidateSidecar() error {
 	}
 	sidecar := etx.tx.BlobTxSidecar()
 	if sidecar == nil {
-		return errors.New("sidecar is missing")
+		return errors.Wrap(ErrInvalidBlobSidecar, "sidecar is missing")
 	}
 	return verifySidecar(sidecar, etx.tx.BlobHashes())
 }
