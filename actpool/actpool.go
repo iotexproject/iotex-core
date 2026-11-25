@@ -122,8 +122,9 @@ type actPool struct {
 	worker            []*queueWorker
 	subs              []Subscriber
 	store             *actionStore // store is the persistent cache for actpool
-	// blobValidator is re-checked on the sender's worker, where its counter is
-	// updated, so that concurrent adds cannot exceed the per-account blob cap
+	// blobValidator takes a slot of the sender's blob quota before an action is
+	// validated, and is re-checked on the sender's worker, where its in-pool
+	// counter is updated
 	blobValidator *blobValidator
 }
 
@@ -151,7 +152,6 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 	}
 	// init validators
 	ap.blobValidator = newBlobValidator(cfg.MaxNumBlobsPerAcct)
-	ap.privateValidators = append(ap.privateValidators, ap.blobValidator)
 	ap.AddSubscriber(ap.blobValidator)
 	if ap.bundlePool != nil {
 		ap.bundlePool.SetValidator(ap.Validate)
@@ -237,6 +237,7 @@ func (ap *actPool) reset() {
 		wg  sync.WaitGroup
 		ctx = ap.context(context.Background())
 	)
+	ap.blobValidator.resetRejected()
 	for i := range ap.worker {
 		wg.Add(1)
 		go func(worker *queueWorker) {
@@ -307,6 +308,9 @@ func (ap *actPool) add(ctx context.Context, act *action.SealedEnvelope) error {
 	if err := ap.checkSelpWithoutState(ctx, act); err != nil {
 		return err
 	}
+	// the blob quota slot taken in checkSelpWithoutState is given back once
+	// the worker is done; if the action was added, it is counted in the pool
+	defer ap.blobValidator.release(act, false)
 
 	intrinsicGas, err := act.IntrinsicGas()
 	if err != nil {
@@ -370,10 +374,18 @@ func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.Seale
 		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
+	// take a slot of the sender's blob quota before the validation, which
+	// for a blob action includes verifying its sidecar, so that the quota
+	// also bounds the blob actions that fail it
+	if err := ap.blobValidator.reserve(selp); err != nil {
+		_actpoolMtc.WithLabelValues("blobQuota").Inc()
+		return err
+	}
 	validators := append(ap.privateValidators, ap.actionEnvelopeValidators...)
 	for _, ev := range validators {
 		span.AddEvent("ev.Validate")
 		if err := ev.Validate(ctx, selp); err != nil {
+			ap.blobValidator.release(selp, isRejectedForOwnReason(err))
 			return err
 		}
 	}
