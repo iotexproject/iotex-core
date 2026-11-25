@@ -1209,3 +1209,79 @@ func TestWorkingSet_Mint_SkipsLossyTxContainer(t *testing.T) {
 	require.Contains(hashes, canonicalHash)
 	require.NotContains(senders, bad.String())
 }
+
+func TestWorkingSet_ValidateAndRun_SkipsUnfoldedSpecialAddress(t *testing.T) {
+	require := require.New(t)
+	registry := protocol.NewRegistry()
+	require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
+	require.NoError(rewarding.NewProtocol(genesis.TestDefault().Rewarding).Register(registry))
+	cfg := Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.TestDefault(),
+	}
+	cfg.Genesis.UpernavikBlockHeight = 1 // enable claiming to an address
+	testutil.NormalizeGenesisHeights(&cfg.Genesis.Blockchain)
+	sender := identityset.Address(28)
+	cfg.Genesis.InitBalanceMap[sender.String()] = "100000000000000000000"
+	f, err := NewStateDB(cfg, db.NewMemKVStore(), RegistryStateDBOption(registry))
+	require.NoError(err)
+	startCtx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{},
+	)
+	require.NoError(f.Start(startCtx))
+	defer func() { require.NoError(f.Stop(startCtx)) }()
+
+	evmNetworkID := cfg.Chain.EVMNetworkID
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight:    uint64(1),
+			BlockTimeStamp: time.Unix(1700000000, 0),
+			Producer:       identityset.Address(27),
+			GasLimit:       testutil.TestGasLimit * 100000,
+		})
+	ctx = protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{ChainID: 1, EvmNetworkID: evmNetworkID},
+	)
+	ctx = protocol.WithRegistry(ctx, registry)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	require.True(protocol.MustGetFeatureCtx(ctx).AddClaimRewardAddress)
+
+	for _, sp := range []string{address.StakingBucketPoolAddr, address.RewardingPoolAddr} {
+		claimTo, err := address.FromString(sp)
+		require.NoError(err)
+		// claimRewardingFund with an address argument, carried in a tx container
+		data, err := action.NewClaimFromRewardingFund(big.NewInt(1), claimTo, nil).EthData()
+		require.NoError(err)
+		to := common.BytesToAddress(address.RewardingProtocolAddrHash[:])
+		tx := types.MustSignNewTx(identityset.PrivateKey(28).EcdsaPrivateKey().(*ecdsa.PrivateKey),
+			types.NewEIP155Signer(big.NewInt(int64(evmNetworkID))),
+			&types.LegacyTx{Nonce: 1, GasPrice: big.NewInt(0), Gas: 100000, To: &to, Value: big.NewInt(0), Data: data})
+		raw, err := tx.MarshalBinary()
+		require.NoError(err)
+		_, sig, pubkey, err := action.ExtractTypeSigPubkey(tx)
+		require.NoError(err)
+		selp, err := (&action.Deserializer{}).SetEvmNetworkID(evmNetworkID).ActionToSealedEnvelope(&iotextypes.Action{
+			Core: &iotextypes.ActionCore{
+				ChainID: 1,
+				Action:  &iotextypes.ActionCore_TxContainer{TxContainer: &iotextypes.TxContainer{Raw: raw}},
+			},
+			SenderPubKey: pubkey.Bytes(),
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_TX_CONTAINER,
+		})
+		require.NoError(err)
+
+		ws, err := f.(workingSetCreator).newWorkingSet(ctx, 1)
+		require.NoError(err)
+		popAccount, deleteAction, receipt, err := ws.validateAndRun(ctx, registry, selp, testutil.TestGasLimit*100000, 0, 6, true)
+		require.NoError(err)
+		require.True(popAccount)
+		require.True(deleteAction)
+		require.Nil(receipt)
+		// the unfolded action is left out before it runs, not dropped after
+		// failing to run
+		require.Zero(ws.mintDrops, sp)
+	}
+}

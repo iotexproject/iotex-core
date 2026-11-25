@@ -341,7 +341,7 @@ func checkSelpData(act *action.SealedEnvelope) error {
 	if act.SrcPubkey() == nil {
 		return action.ErrAddress
 	}
-	return action.CheckTransferAddress(act.Action())
+	return action.CheckActionAddress(act.Action())
 }
 
 func (ap *actPool) checkSelpWithoutState(ctx context.Context, selp *action.SealedEnvelope) error {
