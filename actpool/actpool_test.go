@@ -1467,3 +1467,25 @@ func TestActPool_ConcurrentPendingActionMapAndReset(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestActPool_AddRejectsSpecialAddress(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sf.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
+
+	ap, err := NewActPool(genesis.TestDefault(), sf, DefaultConfig)
+	require.NoError(t, err)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(
+		genesis.WithGenesisContext(ctx, genesis.TestDefault()), protocol.BlockCtx{
+			BlockHeight: 1,
+		}))
+	for _, sp := range []string{address.StakingBucketPoolAddr, address.RewardingPoolAddr} {
+		tsf, err := action.SignedTransfer(sp, _priKey1, 1, big.NewInt(0), nil, 20000, big.NewInt(0).Set(DefaultConfig.MinGasPrice()))
+		require.NoError(t, err)
+		require.ErrorIs(t, ap.Add(ctx, tsf), action.ErrAddress)
+		ts, err := action.SignedTransferStake(1, sp, 1, nil, 20000, big.NewInt(0).Set(DefaultConfig.MinGasPrice()), _priKey1)
+		require.NoError(t, err)
+		require.ErrorIs(t, ap.Add(ctx, ts), action.ErrAddress)
+	}
+}

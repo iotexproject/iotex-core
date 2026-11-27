@@ -1256,6 +1256,13 @@ func (ws *workingSet) validateAndRun(
 			countMintSkip("sanity", nextAction)
 			return true, true, nil, nil
 		}
+		// likewise for the admission check on address fields, which the
+		// container could not be given before it was unfolded
+		if err := action.CheckActionAddress(nextAction.Action()); err != nil {
+			log.L().Info("unfolded action has an invalid address", zap.Uint64("height", ws.height), zap.Error(err))
+			countMintSkip("address", nextAction)
+			return true, true, nil, nil
+		}
 		if intrinsicGas, err := nextAction.IntrinsicGas(); err != nil {
 			log.L().Info("failed to get unfolded action intrinsic gas", zap.Uint64("height", ws.height), zap.Error(err))
 			countMintSkip("intrinsic_gas", nextAction)

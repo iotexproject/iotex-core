@@ -138,14 +138,63 @@ func IsSystemAction(act *SealedEnvelope) bool {
 	}
 }
 
-func CheckTransferAddress(act Action) error {
+// CheckActionAddress checks the address fields of an action before it is
+// accepted into the action pool.
+//
+// address.FromString decodes the special addresses (address.StakingBucketPoolAddr
+// and address.RewardingPoolAddr) without an error, but they name protocol-internal
+// pools, have no 20-byte form, and cannot be used as an account by an action, so
+// every address field an action carries is rejected if it holds one of them. A
+// Transfer recipient is also decoded here, as Transfer.SanityCheck does not.
+//
+// This is an admission check only. It is deliberately not part of SanityCheck,
+// which also runs when validating blocks, so it does not change which blocks
+// are valid.
+func CheckActionAddress(act Action) error {
 	switch act := act.(type) {
 	case *Transfer:
-		if _, err := address.FromString(act.recipient); err != nil {
+		addr, err := address.FromString(act.recipient)
+		if err != nil {
 			return errors.Wrapf(err, "invalid address %s", act.recipient)
 		}
-	default:
-		// other actions have this check in their SanityCheck
+		return checkNotSpecialAddress(addr, "recipient")
+	case *Execution:
+		if act.contract == EmptyAddress {
+			return nil
+		}
+		if !address.IsAddrV1Special(act.contract) {
+			// a malformed contract address is rejected by SanityCheck
+			return nil
+		}
+		return errors.Wrapf(ErrAddress, "contract cannot be special address %s", act.contract)
+	case *TransferStake:
+		return checkNotSpecialAddress(act.voterAddress, "voter address")
+	case *CandidateTransferOwnership:
+		return checkNotSpecialAddress(act.newOwner, "new owner")
+	case *CandidateRegister:
+		if err := checkNotSpecialAddress(act.operatorAddress, "operator address"); err != nil {
+			return err
+		}
+		if err := checkNotSpecialAddress(act.rewardAddress, "reward address"); err != nil {
+			return err
+		}
+		return checkNotSpecialAddress(act.ownerAddress, "owner address")
+	case *CandidateUpdate:
+		if err := checkNotSpecialAddress(act.operatorAddress, "operator address"); err != nil {
+			return err
+		}
+		return checkNotSpecialAddress(act.rewardAddress, "reward address")
+	case *ClaimFromRewardingFund:
+		return checkNotSpecialAddress(act.address, "claim address")
+	}
+	return nil
+}
+
+// checkNotSpecialAddress returns ErrAddress if addr is one of the special
+// addresses. A nil addr is an absent optional field and passes.
+func checkNotSpecialAddress(addr address.Address, field string) error {
+	if _, ok := addr.(*address.AddrV1Special); ok {
+		return errors.Wrapf(ErrAddress, "%s cannot be special address %s", field, addr.String())
 	}
 	return nil
 }
