@@ -2211,6 +2211,8 @@ func (core *coreService) TraceTransaction(ctx context.Context, actHash string, c
 		BlockTimeStamp: blk.Timestamp(),
 		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
 		Producer:       blk.PublicKey().Address(),
+		BaseFee:        blk.BaseFee(),
+		ExcessBlobGas:  blk.ExcessBlobGas(),
 		Simulate:       true,
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
@@ -2470,6 +2472,8 @@ func (core *coreService) traceBlock(ctx context.Context, blk *block.Block, confi
 		BlockTimeStamp: blk.Timestamp(),
 		GasLimit:       g.BlockGasLimitByHeight(blk.Height()),
 		Producer:       blk.PublicKey().Address(),
+		BaseFee:        blk.BaseFee(),
+		ExcessBlobGas:  blk.ExcessBlobGas(),
 		Simulate:       true,
 	})
 	ctx = protocol.WithRegistry(ctx, core.registry)
