@@ -327,6 +327,17 @@ type (
 		// blocks would recompute different roots for them on replay. It rides
 		// Zanzibar Gamma, which is unscheduled.
 		RevertStakingStateOnFailedReceipt bool
+		// RejectProbationListMismatch makes the probation-list roll at an
+		// epoch's last block return an error, failing the block, when an
+		// address in the oldest unproductive-delegate record is missing from
+		// the current probation list. Until now that mismatch called
+		// log.Fatal and stopped the process.
+		//
+		// Both inputs are committed state, so every node sees the mismatch at
+		// the same height either way; what changes is whether every node exits
+		// or every node rejects the block. Rejecting is a consensus outcome, so
+		// this needs its own height. Not yet scheduled.
+		RejectProbationListMismatch bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -522,6 +533,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectStakeMigrationGas:          g.IsZanzibarGamma(height),
 			CheckedBlockGasDeduction:          g.IsZanzibarGamma(height),
 			RevertStakingStateOnFailedReceipt: g.IsZanzibarGamma(height),
+			// Next fork: not yet scheduled.
+			RejectProbationListMismatch: g.IsToBeEnabled(height),
 		},
 	)
 }
