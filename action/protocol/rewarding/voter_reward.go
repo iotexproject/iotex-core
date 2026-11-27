@@ -164,6 +164,9 @@ func (p *Protocol) payVoterCombined(
 					out.compoundBucketID = bucketID
 					addIIP59Items("compound_voter", 1)
 					return out, nil
+				case errors.Is(err, staking.ErrCompoundSkippedPendingUnbind):
+					// The deposit skipped before any mutation; pay the standard
+					// reward destination below without marking it compounded.
 				case compoundErrorIsChainDetermined(err):
 					if rErr := sm.Revert(sid); rErr != nil {
 						// Revert itself is infrastructure. If it fails there is

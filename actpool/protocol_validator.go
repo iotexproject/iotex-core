@@ -8,10 +8,14 @@ package actpool
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/v2/action"
 	"github.com/iotexproject/iotex-core/v2/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/v2/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/v2/blockchain/genesis"
 )
 
 // protocolValidator runs the registered protocols' own validation rules at
@@ -37,14 +41,19 @@ type protocolValidator struct {
 	// The action pool is built before the protocols are registered
 	// (chainservice/builder.go builds the pool, then registers), so resolving
 	// eagerly would capture an empty registry.
-	reg *protocol.Registry
-	sr  protocol.StateReader
+	reg          *protocol.Registry
+	sr           protocol.StateReader
+	chainContext func(context.Context) (context.Context, error)
 }
 
 // NewProtocolValidator returns a validator that applies every registered
 // protocol's ActionValidator rules to an incoming action.
-func NewProtocolValidator(reg *protocol.Registry, sr protocol.StateReader) action.SealedEnvelopeValidator {
-	return &protocolValidator{reg: reg, sr: sr}
+func NewProtocolValidator(reg *protocol.Registry, sr protocol.StateReader, chainContext ...func(context.Context) (context.Context, error)) action.SealedEnvelopeValidator {
+	v := &protocolValidator{reg: reg, sr: sr}
+	if len(chainContext) > 0 {
+		v.chainContext = chainContext[0]
+	}
+	return v
 }
 
 func (v *protocolValidator) Validate(ctx context.Context, selp *action.SealedEnvelope) error {
@@ -66,6 +75,74 @@ func (v *protocolValidator) Validate(ctx context.Context, selp *action.SealedEnv
 			return err
 		}
 	}
+	// Inspect a copy: unfolding must not change the admitted transaction's hash,
+	// encoding, or gas accounting. Only the native staking destination matters.
+	candidate := *selp
+	if container, ok := candidate.Envelope.(action.TxContainer); ok {
+		to, _ := candidate.Destination()
+		feature, enabled := protocol.GetFeatureCtx(ctx)
+		if !enabled || !feature.EnableBucketGuard || to != address.StakingProtocolAddr {
+			return nil
+		}
+		if err := container.Unfold(&candidate, ctx, func(_ context.Context, to *common.Address) (bool, bool, bool, error) {
+			stakingAddr, err := address.FromString(address.StakingProtocolAddr)
+			return true, to != nil && *to == common.BytesToAddress(stakingAddr.Bytes()), false, err
+		}); err != nil {
+			return err
+		}
+	}
+	switch candidate.Action().(type) {
+	case *action.BindBucketGuard, *action.GuardedBucketOp, *action.VaultAction:
+		if !protocol.MustGetFeatureCtx(ctx).EnableBucketGuard {
+			return nil
+		}
+		// Check confirmed sender resources before any PQ preflight. Keep this
+		// admission-only: estimation may omit both nonce and gas price.
+		acct, err := accountutil.LoadAccount(v.sr, protocol.MustGetActionCtx(ctx).Caller)
+		if err != nil {
+			return err
+		}
+		pendingNonce := acct.PendingNonce()
+		if protocol.MustGetFeatureCtx(ctx).UseZeroNonceForFreshAccount {
+			pendingNonce = acct.PendingNonceConsideringFreshAccount()
+		}
+		if selp.Nonce() < pendingNonce {
+			return action.ErrNonceTooLow
+		}
+		cost, err := selp.Cost()
+		if err != nil {
+			return err
+		}
+		if acct.Balance.Cmp(cost) < 0 {
+			return action.ErrInsufficientFunds
+		}
+		// Reject a bad outer ECDSA signature before spending SLH-DSA CPU.
+		if err := selp.VerifySignature(); err != nil {
+			return err
+		}
+		if v.chainContext != nil {
+			ctx, err = v.chainContext(ctx)
+			if err != nil {
+				return err
+			}
+		}
+		blkCtx := protocol.MustGetBlockCtx(ctx)
+		blkCtx.BlockTimeStamp = protocol.MustGetBlockchainCtx(ctx).Tip.Timestamp.Add(genesis.MustExtractGenesisContext(ctx).BlockInterval)
+		ctx = protocol.WithBlockCtx(ctx, blkCtx)
+		ctx, err = withActionCtx(ctx, &candidate)
+		if err != nil {
+			return err
+		}
+		for _, p := range v.reg.All() {
+			if checker, ok := p.(interface {
+				PreflightBucketGuard(context.Context, action.Envelope, protocol.StateReader) error
+			}); ok {
+				return checker.PreflightBucketGuard(ctx, candidate.Envelope, v.sr)
+			}
+		}
+		return errors.New("staking preflight is unavailable")
+	}
+
 	return nil
 }
 

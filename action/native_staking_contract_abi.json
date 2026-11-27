@@ -732,5 +732,820 @@
     ],
     "name": "VoterRewardOptInSet",
     "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "bucketIndex",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint32",
+        "name": "algID",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "acceptSig",
+        "type": "bytes"
+      }
+    ],
+    "name": "bindBucketGuard",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "bucketIndex",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "nonce",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "name": "guardedUnstake",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "bucketIndex",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "nonce",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "name": "guardedWithdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "bucketIndex",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "nonce",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "clearGuard",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint32",
+        "name": "newAlgID",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bytes",
+        "name": "newPublicKey",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "newAcceptSig",
+        "type": "bytes"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "name": "guardedTransfer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "bucketIndex",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "nonce",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "candidateName",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "expectedCandidateID",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "name": "guardedChangeCandidate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "bucketIndex",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "nonce",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "duration",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bool",
+        "name": "autoStake",
+        "type": "bool"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "name": "guardedRestake",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "bucketIndex",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "nonce",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "newAlgID",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bytes",
+        "name": "newPublicKey",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "newAcceptSig",
+        "type": "bytes"
+      },
+      {
+        "internalType": "address",
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "name": "guardedRotate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "type": "function",
+    "name": "vaultCreate",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "name": "ownerTxNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "algID",
+        "type": "uint32"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "name": "acceptSig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultAddDeposit",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultWithdraw",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultRotateOwner",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "newOwner",
+        "type": "address"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultRotateGuard",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "algID",
+        "type": "uint32"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "name": "acceptSig",
+        "type": "bytes"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultRevokeSignatures",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultInitiateExit",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultCancelExit",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultFinalizeExit",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "guardUnbindInitiate",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "guardUnbindFinalize",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "guardUnbindCancel",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "generation",
+        "type": "uint64"
+      },
+      {
+        "name": "requestID",
+        "type": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHeight",
+        "type": "uint64"
+      },
+      {
+        "name": "anchorHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "sponsor",
+        "type": "address"
+      },
+      {
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "bindBucketGuardV2",
+    "inputs": [
+      {
+        "name": "vaultIndex",
+        "type": "uint64"
+      },
+      {
+        "name": "unbindDelay",
+        "type": "uint64"
+      },
+      {
+        "name": "algID",
+        "type": "uint32"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes"
+      },
+      {
+        "name": "acceptSig",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultBucket",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "name": "guardRecord",
+        "type": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "stakingGuardV2",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "guardRecord",
+        "type": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "VaultTransition",
+    "inputs": [
+      {
+        "name": "operation",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "index",
+        "type": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "bucketClass",
+        "type": "uint32",
+        "indexed": false
+      },
+      {
+        "name": "generation",
+        "type": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "guardNonce",
+        "type": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "nextRequestID",
+        "type": "uint64",
+        "indexed": false
+      }
+    ]
   }
 ]

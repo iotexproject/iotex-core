@@ -111,6 +111,7 @@ func (worker *queueWorker) Handle(job workerJob) error {
 		return err
 	}
 
+	worker.ap.admissionGas.Store(actHash, intrinsicGas)
 	worker.ap.allActions.Set(actHash, act)
 	worker.ap.onAdded(ctx, act)
 	isBlobTx := len(act.BlobHashes()) > 0 // only store blob tx
