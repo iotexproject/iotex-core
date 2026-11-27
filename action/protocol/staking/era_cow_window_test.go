@@ -146,8 +146,8 @@ func TestEraCOWWindowIsInertPreActivation(t *testing.T) {
 	r.False(window.Open())
 
 	// Every covered mutation, with the gate shut.
-	r.NoError(csm.updateBucket(0, eraTestBucket(t, 2, 1, 200)))
-	r.NoError(csm.delBucketAndIndex(identityset.Address(2), identityset.Address(1), 0))
+	r.NoError(csm.updateBucket(0, eraTestBucket(t, 2, 1, 200), legacyAuth))
+	r.NoError(csm.delBucketAndIndex(identityset.Address(2), identityset.Address(1), 0, legacyAuth))
 	n, err := CollectEraCOWGarbage(ctx, sm, 100)
 	r.NoError(err)
 	r.Zero(n)
@@ -177,7 +177,7 @@ func TestFrozenNativeBucketSeesValueAtFreezeHeight(t *testing.T) {
 	grown := eraTestBucket(t, 2, 1, 100)
 	grown.Index = index
 	grown.StakedAmount = big.NewInt(999)
-	r.NoError(csm.updateBucket(index, grown))
+	r.NoError(csm.updateBucket(index, grown, legacyAuth))
 
 	live, err := csm.NativeBucket(index)
 	r.NoError(err)
@@ -191,7 +191,7 @@ func TestFrozenNativeBucketSeesValueAtFreezeHeight(t *testing.T) {
 	// A second write must not overwrite the first copy — the era's value is the
 	// one from before the *first* touch.
 	grown.StakedAmount = big.NewInt(1_500)
-	r.NoError(csm.updateBucket(index, grown))
+	r.NoError(csm.updateBucket(index, grown, legacyAuth))
 	frozen, err = newCandidateStateReader(sm).FrozenNativeBucket(window, index)
 	r.NoError(err)
 	r.Equal(big.NewInt(100), frozen.StakedAmount)
@@ -213,7 +213,7 @@ func TestFrozenNativeBucketSurvivesWithdrawal(t *testing.T) {
 	window, err := LoadEraCOWWindow(sm)
 	r.NoError(err)
 
-	r.NoError(csm.delBucketAndIndex(voter, cand, index))
+	r.NoError(csm.delBucketAndIndex(voter, cand, index, legacyAuth))
 
 	_, err = csm.NativeBucket(index)
 	r.ErrorIs(errors.Cause(err), state.ErrStateNotExist)
@@ -260,7 +260,7 @@ func TestScanFrozenVotersCountsVotersNotBuckets(t *testing.T) {
 
 	// Delete the third voter's only live index entry. Its frozen voter index is
 	// now available only through COW and must still be enumerated.
-	r.NoError(csm.delBucketAndIndex(voters[2], cand, withdrawn))
+	r.NoError(csm.delBucketAndIndex(voters[2], cand, withdrawn, legacyAuth))
 
 	first, err := ScanFrozenVoters(sm, window, make([]byte, 20), nil, nil, 2, 100)
 	r.NoError(err)
@@ -297,7 +297,7 @@ func TestScanFrozenVotersAdvancesAcrossCOWTombstones(t *testing.T) {
 		bucket := NewVoteBucket(cand, voter, big.NewInt(100), 91, time.Now(), true)
 		index, err := csm.putBucketAndIndex(bucket)
 		r.NoError(err)
-		r.NoError(csm.delBucketAndIndex(voter, cand, index))
+		r.NoError(csm.delBucketAndIndex(voter, cand, index, legacyAuth))
 	}
 
 	var (
@@ -522,7 +522,7 @@ func TestFrozenCandidatesForVoterUsesFrozenBucketsAndDeduplicates(t *testing.T) 
 
 	updated := NewVoteBucket(lowCandidate, voter, big.NewInt(100), 91, time.Now(), true)
 	updated.Index = nativeIndex
-	r.NoError(csm.updateBucket(nativeIndex, updated))
+	r.NoError(csm.updateBucket(nativeIndex, updated, legacyAuth))
 	r.NoError(cs.DeleteBucket(ctx, contract, 1))
 
 	candidates, err := FrozenCandidatesForVoter(sm, window, voter)
@@ -587,7 +587,7 @@ func TestFrozenNativeBucketRejectsPostFreezeCreateThenUpdate(t *testing.T) {
 	for _, amount := range []int64{300, 400} {
 		updated := eraTestBucket(t, 2, 1, amount)
 		updated.Index = postFreeze
-		r.NoError(csm.updateBucket(postFreeze, updated))
+		r.NoError(csm.updateBucket(postFreeze, updated, legacyAuth))
 	}
 
 	live, err := csm.NativeBucket(postFreeze)
@@ -638,7 +638,7 @@ func TestFrozenNativeBucketSurvivesPostFreezeOwnerTransfer(t *testing.T) {
 
 	transferred := NewVoteBucket(cand, newOwner, big.NewInt(100), 91, time.Now(), true)
 	transferred.Index = index
-	r.NoError(csm.updateBucket(index, transferred))
+	r.NoError(csm.updateBucket(index, transferred, legacyAuth))
 	r.NoError(csm.delVoterBucketIndex(oldOwner, index))
 	r.NoError(csm.putVoterBucketIndex(newOwner, index))
 
@@ -800,7 +800,7 @@ func TestSealEraCOWWindowStopsCopying(t *testing.T) {
 	r.NoError(BeginEraCOWWindow(ctx, sm, eraTestFreezeHeight))
 	grown := eraTestBucket(t, 2, 1, 100)
 	grown.StakedAmount = big.NewInt(999)
-	r.NoError(csm.updateBucket(index, grown))
+	r.NoError(csm.updateBucket(index, grown, legacyAuth))
 	r.Positive(eraTestCOWKeyCount(t, sm))
 
 	r.NoError(SealEraCOWWindow(ctx, sm))
@@ -812,7 +812,7 @@ func TestSealEraCOWWindowStopsCopying(t *testing.T) {
 	sealed := eraTestCOWKeyCount(t, sm)
 	after := eraTestCSM(ctx, sm)
 	grown.StakedAmount = big.NewInt(1_500)
-	r.NoError(after.updateBucket(index, grown))
+	r.NoError(after.updateBucket(index, grown, legacyAuth))
 	r.Equal(sealed, eraTestCOWKeyCount(t, sm))
 
 	// The sealed era's copies are collectable, and collection is bounded.
@@ -950,7 +950,7 @@ func TestSupersededWindowSilentlyAnswersForTheWrongEra(t *testing.T) {
 	grown := eraTestBucket(t, 2, 1, 100)
 	grown.Index = staked
 	grown.StakedAmount = big.NewInt(999)
-	r.NoError(csm.updateBucket(staked, grown))
+	r.NoError(csm.updateBucket(staked, grown, legacyAuth))
 	postFreeze, err := csm.putBucketAndIndex(eraTestBucket(t, 3, 1, 700))
 	r.NoError(err)
 	r.NotEqual(staked, postFreeze)

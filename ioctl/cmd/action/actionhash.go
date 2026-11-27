@@ -7,6 +7,7 @@ package action
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
@@ -23,10 +25,12 @@ import (
 	protoV1 "google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/v2/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/v2/action/protocol/staking/bucketguard"
 	"github.com/iotexproject/iotex-core/v2/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/v2/ioctl/config"
 	"github.com/iotexproject/iotex-core/v2/ioctl/output"
 	"github.com/iotexproject/iotex-core/v2/ioctl/util"
+	"github.com/iotexproject/iotex-core/v2/pkg/pqcrypto"
 )
 
 // Multi-language support
@@ -258,6 +262,16 @@ func printActionProto(act *iotextypes.Action) (string, error) {
 		}
 		result += "  >\n" +
 			">\n"
+	case core.GetBindBucketGuard() != nil:
+		b := core.GetBindBucketGuard()
+		result += "bindBucketGuard: <\n" +
+			fmt.Sprintf("  bucketIndex: %d\n", b.GetBucketIndex()) +
+			fmt.Sprintf("  algID: %d (%s)\n", b.GetAlgID(), pqcrypto.AlgID(b.GetAlgID())) +
+			fmt.Sprintf("  publicKey: %x\n", b.GetPublicKey()) +
+			fmt.Sprintf("  acceptSig: %s\n", sigDigest(b.GetAcceptSig())) +
+			">\n"
+	case core.GetGuardedBucketOp() != nil:
+		result += printGuardedBucketOp(core.GetGuardedBucketOp())
 	default:
 		bs, _ := protoV1.Marshal(core)
 		result += string(bs)
@@ -266,6 +280,61 @@ func printActionProto(act *iotextypes.Action) (string, error) {
 		fmt.Sprintf("signature: %x\n", act.Signature)
 
 	return result, nil
+}
+
+// sigDigest describes a post-quantum signature (16 KB for SLH-DSA-SHA2-192s)
+// by its size and SHA-256 instead of dumping it.
+func sigDigest(sig []byte) string {
+	if len(sig) == 0 {
+		return "<none>"
+	}
+	return fmt.Sprintf("<%d bytes, sha256 %x>", len(sig), sha256.Sum256(sig))
+}
+
+func printGuardedBucketOp(m *iotextypes.GuardedBucketOp) string {
+	addr := func(b []byte) string {
+		a, err := address.FromBytes(b)
+		if err != nil {
+			return fmt.Sprintf("%x", b)
+		}
+		return a.String()
+	}
+	result := "guardedBucketOp: <\n" +
+		fmt.Sprintf("  bucketIndex: %d\n", m.GetBucketIndex()) +
+		fmt.Sprintf("  op: %d (%s)\n", m.GetOp(), bucketguard.Op(m.GetOp())) +
+		fmt.Sprintf("  generation: %d\n", m.GetGeneration()) +
+		fmt.Sprintf("  nonce: %d\n", m.GetNonce()) +
+		fmt.Sprintf("  deadline: %d\n", m.GetDeadline()) +
+		fmt.Sprintf("  anchorHeight: %d\n", m.GetAnchorHeight()) +
+		fmt.Sprintf("  anchorHash: %x\n", m.GetAnchorHash())
+	if len(m.GetSponsor()) > 0 {
+		result += fmt.Sprintf("  sponsor: %s\n", addr(m.GetSponsor()))
+	}
+	if len(m.GetRecipient()) > 0 {
+		result += fmt.Sprintf("  recipient: %s\n", addr(m.GetRecipient()))
+	}
+	if len(m.GetNewOwner()) > 0 {
+		result += fmt.Sprintf("  newOwner: %s\n", addr(m.GetNewOwner()))
+	}
+	if m.GetCandidateName() != "" {
+		result += fmt.Sprintf("  candidateName: %s\n", m.GetCandidateName()) +
+			fmt.Sprintf("  expectedCandidateID: %s\n", addr(m.GetExpectedCandidateID()))
+	}
+	if m.GetDuration() != 0 || m.GetAutoStake() {
+		result += fmt.Sprintf("  duration: %d\n", m.GetDuration()) +
+			fmt.Sprintf("  autoStake: %v\n", m.GetAutoStake())
+	}
+	if ng := m.GetNewGuard(); ng != nil {
+		result += "  newGuard: <\n" +
+			fmt.Sprintf("    algID: %d (%s)\n", ng.GetAlgID(), pqcrypto.AlgID(ng.GetAlgID())) +
+			fmt.Sprintf("    publicKey: %x\n", ng.GetPublicKey()) +
+			fmt.Sprintf("    acceptSig: %s\n", sigDigest(ng.GetAcceptSig())) +
+			"  >\n"
+	}
+	if m.GetClearGuard() {
+		result += "  clearGuard: true\n"
+	}
+	return result + fmt.Sprintf("  sig: %s\n", sigDigest(m.GetSig())) + ">\n"
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
@@ -362,6 +431,18 @@ func Match(in string, matchType string) string {
 			return "(Failure : Max code size exceeded)"
 		case "108":
 			return "(Failure : Write protection)"
+		case "216":
+			return "(Failure : Bucket is guarded)"
+		case "217":
+			return "(Failure : Bucket is not guarded)"
+		case "218":
+			return "(Failure : Guard generation, nonce, anchor or deadline mismatch)"
+		case "219":
+			return "(Failure : Invalid guard signature)"
+		case "220":
+			return "(Failure : Bucket cannot be guarded)"
+		case "221":
+			return "(Failure : Candidate does not match the signed identifier)"
 		}
 	}
 	return ""

@@ -43,6 +43,7 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(6), contractstaking.LSDVoterIndexPrefix)
 	r.Equal(byte(7), eracow.ControlPrefix)
 	r.Equal(byte(8), eracow.EntryPrefix)
+	r.Equal(byte(9), _bucketGuard)
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)

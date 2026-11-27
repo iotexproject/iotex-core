@@ -92,7 +92,7 @@ func TestGetPutStaking(t *testing.T) {
 	vb.StakedAmount.Sub(vb.StakedAmount, big.NewInt(100))
 	vb.UnstakeStartTime = time.Now().UTC()
 	require.True(vb.isUnstaked())
-	require.NoError(csm.updateBucket(2, vb))
+	require.NoError(csm.updateBucket(2, vb, legacyAuth))
 	vb1, err := csr.NativeBucket(2)
 	require.NoError(err)
 	require.Equal(vb, vb1)

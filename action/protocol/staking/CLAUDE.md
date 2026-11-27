@@ -86,8 +86,14 @@ views — unpack via the `candidateDeactivation(address)` view (added in
 ### State key prefixes are a 1-byte namespace; do not invent new ones
 
 - `_const = 0`, `_bucket = 1`, `_voterIndex = 2`, `_candIndex = 3`,
-  `_endorsement = 4`. Adding a new state type means adding a tag in
-  `protocol.go` — review for collisions.
+  `_endorsement = 4`, `_candidateRewardSnapshot = 5` (`protocol.go`);
+  `contractstaking.LSDVoterIndexPrefix = 6`; `eracow.ControlPrefix = 7`,
+  `eracow.EntryPrefix = 8`; `_bucketGuard = 9` (`protocol.go`).
+  Adding a new state type means adding a tag in `protocol.go` — review for
+  collisions. Tags are declared in more than one package, so a new tag must
+  not be "the next iota" without checking the others; `TestProtocol` pins
+  them all. A colliding tag puts foreign keys inside another record's range
+  scan (e.g. `ScanFrozenVoters`) and fails the block.
 
 ### Stake migration must snapshot + revert on contract failure
 

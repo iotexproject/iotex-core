@@ -137,6 +137,9 @@ test: fmt
 # suitable for PR CI. Override with `make fuzz-short FUZZTIME=5m` for
 # longer runs locally or in nightly CI.
 FUZZTIME ?= 30s
+# Minimizing an input of several KB, such as a guarded action with its 16 KB
+# signature, takes most of a short run, so short runs skip it by default.
+FUZZMINIMIZETIME ?= 0
 FUZZ_TARGETS := \
 	./crypto:FuzzMerkleHashTree \
 	./crypto:FuzzSort \
@@ -145,14 +148,15 @@ FUZZ_TARGETS := \
 	./action:FuzzLogDeserialize \
 	./action:FuzzActionCoreLoadProto \
 	./state:FuzzAccountDeserialize \
-	./state:FuzzCandidateListDeserialize
+	./state:FuzzCandidateListDeserialize \
+	./action/protocol/staking/bucketguard:FuzzWeb3Decode
 
 .PHONY: fuzz-short
 fuzz-short:
 	@for t in $(FUZZ_TARGETS); do \
 		pkg=$${t%%:*}; name=$${t##*:}; \
 		echo "==> fuzz $$pkg $$name ($(FUZZTIME))"; \
-		go test -run='^$$' -fuzz="^$$name$$" -fuzztime=$(FUZZTIME) $$pkg || exit 1; \
+		go test -run='^$$' -fuzz="^$$name$$" -fuzztime=$(FUZZTIME) -fuzzminimizetime=$(FUZZMINIMIZETIME) $$pkg || exit 1; \
 	done
 
 .PHONY: test-unit
