@@ -115,12 +115,9 @@ type (
 		finalized              bool
 		txValidator            *protocol.GenericValidator
 		receipts               []*action.Receipt
-		captureStateDiff       bool              // capture the write queue for a state diff callback
-		stateDiffEntries       []WriteQueueEntry // captured write queue for state diff broadcasting
-		stateDiffDigest        []byte            // cached digest bytes for state diff callback
-		mintDrops              int               // actions dropped from the draft for failing to run
-		mintOwnerOrOpChanged   bool              // a candidate's owner or operator changed in this block (mint only)
-		mintDeferred           map[string]bool   // senders held back to the next block (mint only)
+		mintDrops              int             // actions dropped from the draft for failing to run
+		mintOwnerOrOpChanged   bool            // a candidate's owner or operator changed in this block (mint only)
+		mintDeferred           map[string]bool // senders held back to the next block (mint only)
 	}
 )
 
@@ -132,11 +129,6 @@ func newWorkingSet(height uint64, views protocol.Views, store workingSetStore, s
 		mintDeferred:           make(map[string]bool),
 		store:                  store,
 		workingSetStoreFactory: storeFactory,
-	}
-	// Set here so every path, including a working set derived from an
-	// uncommitted parent, follows the factory's current callback state.
-	if sdb, ok := storeFactory.(*stateDB); ok {
-		ws.captureStateDiff = sdb.diffCallback.Load() != nil
 	}
 	ws.txValidator = protocol.NewGenericValidator(ws, accountutil.AccountState)
 	return ws
@@ -372,29 +364,8 @@ func (ws *workingSet) finalize(ctx context.Context) error {
 	if err := ws.store.Finalize(ctx); err != nil {
 		return err
 	}
-	// Capture write queue entries and digest for state diff broadcasting.
-	// Must happen after Finalize (which writes height) but before Commit (which flushes).
-	if sdbStore := ws.getStateDBStore(); ws.captureStateDiff && sdbStore != nil {
-		ws.stateDiffEntries = sdbStore.CaptureWriteQueue()
-		d := sdbStore.Digest()
-		ws.stateDiffDigest = d[:]
-	}
 	ws.finalized = true
 
-	return nil
-}
-
-// getStateDBStore extracts the underlying *stateDBWorkingSetStore,
-// handling both direct and wrapped (workingSetStoreWithSecondary) cases.
-func (ws *workingSet) getStateDBStore() *stateDBWorkingSetStore {
-	if s, ok := ws.store.(*stateDBWorkingSetStore); ok {
-		return s
-	}
-	if s, ok := ws.store.(*workingSetStoreWithSecondary); ok {
-		if inner, ok := s.writer.(*stateDBWorkingSetStore); ok {
-			return inner
-		}
-	}
 	return nil
 }
 

@@ -525,6 +525,49 @@ func TestDeprecatedStakingPatchHeightsFromYAML(t *testing.T) {
 	r.Equal(uint64(19778036), cfg.Genesis.FixAliasForNonStopHeight)
 }
 
+func TestRemovedIOSwarmSectionFromYAML(t *testing.T) {
+	r := require.New(t)
+
+	// a config file that still carries the removed ioswarm section must load,
+	// and the rest of the file must still take effect
+	name := filepath.Join(t.TempDir(), "config.yaml")
+	r.NoError(os.WriteFile(name, []byte(`chain:
+  producerPrivKey: "a000000000000000000000000000000000000000000000000000000000000000"
+ioswarm:
+  enabled: true
+  grpcPort: 14689
+  swarmApiPort: 14690
+  maxAgents: 100
+  taskLevel: "L4"
+  shadowMode: true
+  pollIntervalMs: 1000
+  masterSecret: "secret"
+  epochRewardIOTX: 0.5
+  diffStoreEnabled: true
+  diffStorePath: "/var/data/statediffs.db"
+  rewardContract: "0x236CBF52125E68Db8fA88b893CcaFB2EE542F2d9"
+  reward:
+    delegateCutPct: 10
+    bonusAccuracyPct: 99.5
+api:
+  port: 14015
+`), 0600))
+
+	for _, load := range []func() (Config, error){
+		func() (Config, error) { return New([]string{name}, nil) },
+		func() (Config, error) { return NewSub([]string{"", name}) },
+	} {
+		cfg, err := load()
+		r.NoError(err)
+		r.Equal("a000000000000000000000000000000000000000000000000000000000000000", cfg.Chain.ProducerPrivKey)
+		r.Equal(14015, cfg.API.GRPCPort)
+	}
+	// a config file without the section loads as before
+	cfg, err := New(nil, nil)
+	r.NoError(err)
+	r.Empty(cfg.IOSwarm)
+}
+
 func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
 	cfg, err := NewSub([]string{"", "wrong_path"})
 	require.Error(t, err)

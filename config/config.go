@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/v2/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/v2/db"
 	"github.com/iotexproject/iotex-core/v2/dispatcher"
-	"github.com/iotexproject/iotex-core/v2/ioswarm"
 	"github.com/iotexproject/iotex-core/v2/nodeinfo"
 	"github.com/iotexproject/iotex-core/v2/p2p"
 	"github.com/iotexproject/iotex-core/v2/pkg/log"
@@ -86,7 +85,6 @@ var (
 		Genesis:    genesis.Default,
 		NodeInfo:   nodeinfo.DefaultConfig,
 		ActionSync: actsync.DefaultConfig,
-		IOSwarm:    ioswarm.DefaultConfig(),
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -139,7 +137,9 @@ type (
 		Genesis            genesis.Genesis                 `yaml:"genesis"`
 		NodeInfo           nodeinfo.Config                 `yaml:"nodeinfo"`
 		ActionSync         actsync.Config                  `yaml:"actionSync"`
-		IOSwarm            ioswarm.Config                  `yaml:"ioswarm"`
+		// IOSwarm is no longer used. The key is still accepted so config
+		// files that set it keep loading; whatever it holds is ignored.
+		IOSwarm map[string]any `yaml:"ioswarm,omitempty"`
 	}
 
 	// Validate is the interface of validating the config

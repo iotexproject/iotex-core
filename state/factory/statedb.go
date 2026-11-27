@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -47,9 +46,6 @@ type (
 		getHeight() (uint64, error)
 		putHeight(uint64) error
 	}
-	// StateDiffCallback is called after a block is committed with the captured state diff entries.
-	StateDiffCallback func(height uint64, entries []WriteQueueEntry, digest []byte)
-
 	// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 	stateDB struct {
 		mutex                    sync.RWMutex
@@ -64,10 +60,6 @@ type (
 		ps                       *patchStore
 		erigonDB                 *erigonstore.ErigonDB
 		dependencies             []blockdao.BlockIndexer
-		// diffCallback is nil unless a callback is installed. Copying a
-		// block's write queue for it costs every working set, so working
-		// sets do it only when something will receive the copy.
-		diffCallback atomic.Pointer[StateDiffCallback]
 	}
 )
 
@@ -96,40 +88,6 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
-}
-
-// DiffCallbackStateDBOption sets a callback invoked after each block commit
-// with the block's state diff entries. Used by ioSwarm for state diff streaming.
-func DiffCallbackStateDBOption(cb StateDiffCallback) StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
-		sdb.setDiffCallback(cb)
-		return nil
-	}
-}
-
-// SetDiffCallback sets the state diff callback on a Factory.
-// Returns false if the factory is not a stateDB (e.g., in-memory test factory).
-func SetDiffCallback(f Factory, cb StateDiffCallback) bool {
-	if sdb, ok := f.(*stateDB); ok {
-		sdb.setDiffCallback(cb)
-		return true
-	}
-	return false
-}
-
-func (sdb *stateDB) setDiffCallback(cb StateDiffCallback) {
-	if cb == nil {
-		sdb.diffCallback.Store(nil)
-		return
-	}
-	sdb.diffCallback.Store(&cb)
-}
-
-func (sdb *stateDB) loadDiffCallback() StateDiffCallback {
-	if cb := sdb.diffCallback.Load(); cb != nil {
-		return *cb
-	}
-	return nil
 }
 
 // DisableWorkingSetCacheOption disable workingset cache
@@ -573,18 +531,9 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		sdb.mutex.Unlock()
 		return err
 	}
-	// Capture callback and entries before releasing lock
-	cb := sdb.loadDiffCallback()
-	diffEntries := ws.stateDiffEntries
-	diffDigest := ws.stateDiffDigest
 	sdb.protocolViews = ws.views
 	sdb.currentChainHeight = h
 	sdb.mutex.Unlock()
-	// Invoke state diff callback outside the mutex to avoid holding
-	// the lock during potentially slow broadcast operations
-	if cb != nil && len(diffEntries) > 0 {
-		cb(h, diffEntries, diffDigest)
-	}
 	for _, indexer := range sdb.dependencies {
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return errors.Wrapf(err, "failed to update indexer %T", indexer)

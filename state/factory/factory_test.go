@@ -1955,14 +1955,3 @@ func benchState(sf Factory, b *testing.B) {
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
-
-func TestSetDiffCallbackClear(t *testing.T) {
-	require := require.New(t)
-	sf, err := NewStateDB(DefaultConfig, db.NewMemKVStore(), SkipBlockValidationStateDBOption())
-	require.NoError(err)
-	sdb := sf.(*stateDB)
-	require.True(SetDiffCallback(sf, func(uint64, []WriteQueueEntry, []byte) {}))
-	require.NotNil(sdb.loadDiffCallback())
-	require.True(SetDiffCallback(sf, nil))
-	require.Nil(sdb.loadDiffCallback())
-}
