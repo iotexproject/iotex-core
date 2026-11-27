@@ -17,6 +17,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	// ErrInvalidBlobSidecar is returned when a blob sidecar is missing or does
+	// not match the blob hashes of the tx: wrong number of blobs, commitments or
+	// proofs, or a commitment whose versioned hash is not the one in the tx
+	ErrInvalidBlobSidecar = errors.New("invalid blob sidecar")
+	// ErrKZGVerification is returned when the KZG proof of a blob in the sidecar
+	// fails to verify
+	ErrKZGVerification = errors.New("KZG verification error")
+)
+
 // BlobTxData represents an EIP-4844 transaction
 type BlobTxData struct {
 	blobFeeCap *uint256.Int // a.k.a. maxFeePerBlobGas
@@ -179,22 +189,25 @@ func (tx *BlobTxData) SanityCheck() error {
 
 func (tx *BlobTxData) ValidateSidecar() error {
 	if tx.sidecar == nil {
-		return errors.New("sidecar is missing")
+		return errors.Wrap(ErrInvalidBlobSidecar, "sidecar is missing")
 	}
 	return verifySidecar(tx.sidecar, tx.blobHashes)
 }
 
+// verifySidecar checks the sidecar against the blob hashes of the tx. A failure
+// of the structural checks wraps ErrInvalidBlobSidecar, and a failure of the KZG
+// proof verification wraps ErrKZGVerification, so callers can tell them apart.
 func verifySidecar(sidecar *types.BlobTxSidecar, hashes []common.Hash) error {
 	size := len(hashes)
 	// Verify the size of hashes, commitments and proofs
 	if len(sidecar.Blobs) != size {
-		return errors.New("number of blobs and hashes mismatch")
+		return errors.Wrap(ErrInvalidBlobSidecar, "number of blobs and hashes mismatch")
 	}
 	if len(sidecar.Commitments) != size {
-		return errors.New("number of blobs and commitments mismatch")
+		return errors.Wrap(ErrInvalidBlobSidecar, "number of blobs and commitments mismatch")
 	}
 	if len(sidecar.Proofs) != size {
-		return errors.New("number of blobs and proofs mismatch")
+		return errors.Wrap(ErrInvalidBlobSidecar, "number of blobs and proofs mismatch")
 	}
 	// Blob quantities match up, validate that the provers match with the
 	// transaction hash before getting to the cryptography
@@ -202,14 +215,14 @@ func verifySidecar(sidecar *types.BlobTxSidecar, hashes []common.Hash) error {
 	for i, vhash := range hashes {
 		computed := kzg4844.CalcBlobHashV1(hasher, &sidecar.Commitments[i])
 		if vhash != computed {
-			return errors.Errorf("blob %d: computed hash %x mismatches transaction one %x", i, computed, vhash)
+			return errors.Wrapf(ErrInvalidBlobSidecar, "blob %d: computed hash %x mismatches transaction one %x", i, computed, vhash)
 		}
 	}
 	// Blob commitments match with the hashes in the transaction, verify the
 	// blobs themselves via KZG
 	for i := range sidecar.Blobs {
 		if err := kzg4844.VerifyBlobProof(&sidecar.Blobs[i], sidecar.Commitments[i], sidecar.Proofs[i]); err != nil {
-			return errors.Errorf("invalid blob %d: %v", i, err)
+			return errors.Wrapf(ErrKZGVerification, "invalid blob %d: %v", i, err)
 		}
 	}
 	return nil
