@@ -74,10 +74,6 @@ func stake2Renew(args []string) error {
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		gasLimit = action.RestakeBaseIntrinsicGas +
-			action.RestakePayloadGas*uint64(len(payload))
-	}
 
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {

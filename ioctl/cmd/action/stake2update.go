@@ -100,9 +100,6 @@ func stake2Update(args []string) error {
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		gasLimit = action.CandidateUpdateBaseIntrinsicGas
-	}
 
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {

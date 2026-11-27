@@ -66,9 +66,6 @@ func stake2Withdraw(args []string) error {
 	}
 
 	gasLimit := _gasLimitFlag.Value().(uint64)
-	if gasLimit == 0 {
-		gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
-	}
 
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
