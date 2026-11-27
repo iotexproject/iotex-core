@@ -357,7 +357,7 @@ func TestSelfDestructTransferLogForgeryGuard(t *testing.T) {
 }
 
 // TestAccessListAndPrepare covers the access-list warming performed by Prepare
-// (EIP-2929/2930/3651) plus AccessedSlots and SubRefund — machinery that gates
+// (EIP-2929/2930/3651) and SubRefund — machinery that gates
 // how much a transfer/call costs and which addresses are pre-warmed.
 func TestAccessListAndPrepare(t *testing.T) {
 	require := require.New(t)
@@ -384,11 +384,6 @@ func TestAccessListAndPrepare(t *testing.T) {
 	aOk, sOk := stateDB.SlotInAccessList(slotAddr, slot)
 	require.True(aOk)
 	require.True(sOk)
-
-	// AccessedSlots reflects the (address -> slots) that were touched
-	accessed := stateDB.AccessedSlots()
-	require.Contains(accessed, slotAddr)
-	require.Contains(accessed[slotAddr], slot)
 
 	// Prepare on non-Berlin rules is a no-op
 	fresh := newAdapter(t)

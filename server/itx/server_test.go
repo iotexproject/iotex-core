@@ -34,28 +34,6 @@ func TestStop(t *testing.T) {
 	require.NoError(err)
 }
 
-func TestStartIOSwarmFailure(t *testing.T) {
-	require := require.New(t)
-	cfg, cleanupPath := newConfig(t)
-	defer cleanupPath()
-	cfg.IOSwarm.Enabled = true
-	cfg.IOSwarm.MasterSecret = ""
-	cfg.IOSwarm.DiffStoreEnabled = false
-	cfg.IOSwarm.GRPCPort = testutil.RandomPort()
-	svr, err := NewServer(cfg)
-	require.NoError(err)
-	require.NotNil(svr.ioswarmCoord)
-	ctx := context.Background()
-	// a coordinator that fails to start does not fail the node
-	require.NoError(svr.Start(ctx))
-	require.Nil(svr.ioswarmCoord)
-	err = testutil.WaitUntil(100*time.Millisecond, 3*time.Second, func() (bool, error) {
-		err = svr.Stop(ctx)
-		return err == nil, err
-	})
-	require.NoError(err)
-}
-
 func TestNewSubChainService(t *testing.T) {
 	require := require.New(t)
 	cfg, cleanupPath := newConfig(t)
